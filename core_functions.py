@@ -8,15 +8,18 @@ from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 from sklearn.model_selection import LeaveOneGroupOut
 
 class rms_pricing_model():
-    def __init__(self, data_filepath):
+    def __init__(self, data):
         
         self.models = {}
         
 
         # Ingest Correctly Shaped Data
-        sales_data = pd.read_csv(
-            data_filepath,
-            usecols=['Wk', 'Tier', 'Store', 'Item_ID', 'Qty_', 'Price_'])
+        # sales_data = pd.read_csv(
+        #     data_filepath,
+        #     usecols=['Wk', 'Tier', 'Store', 'Item_ID', 'Qty_', 'Price_'])
+
+        # Ingest Correctly Shaped Data
+        sales_data = data[['Wk', 'Tier', 'Store', 'Item_ID', 'Qty_', 'Price_']].copy()
 
         # Optimize Memory Usage by Downcasting etc.
         sales_data = optimize_memory(sales_data)
@@ -67,7 +70,20 @@ class rms_pricing_model():
         mae_total = 0
         rmse_total = 0
 
+        target_splits = 8
+        n_actual_splits = 0
+        nth_split = 0
+
         for train_index, test_index in logo.split(X, y, Week):
+            
+            # probability to run this week on cross-validation
+            # This logic ensures only 4 cv splits are done to save time
+            cv_prob = max(0,(target_splits - n_actual_splits)/(n_splits-nth_split))
+            nth_split += 1
+
+            if np.random.random()>cv_prob:
+                continue
+
             X_train, X_test = X.iloc[train_index], X.iloc[test_index]
             y_train, y_test = y.iloc[train_index], y.iloc[test_index]
 
@@ -83,7 +99,11 @@ class rms_pricing_model():
             rmse_total += np.sqrt(
                 mean_squared_error(y_true=y_test, y_pred=y_pred))
 
-        item_id = target_column[0]
+            n_actual_splits += 1
+
+        n_splits = n_actual_splits
+
+        item_id = item_id
         avg_sales = y.mean().values[0]
         r2 = r2_total / n_splits
         mae = mae_total / n_splits
@@ -100,6 +120,17 @@ class rms_pricing_model():
         }
 
         return outp
+
+    def get_all_performance(self):
+        item_ids = [int(x.split('_')[1]) for x in self.price_columns]
+        perf_df = pd.DataFrame(columns=[
+            'item_id','avg_sales','r2_score',
+            'mae_score','mpe_score','rmse_score']
+            )
+        for item_id in item_ids:
+            item_perf = self.get_performance(item_id)
+            perf_df = perf_df.append(item_perf, ignore_index=True)
+        return perf_df
 
     def get_model(self, item_id):
 
@@ -127,7 +158,7 @@ class rms_pricing_model():
 
         return model
     
-    def train_all_items(self, retrain=False):
+    def train_all_items(self, retrain=True):
         item_ids = [int(x.split('_')[1]) for x in self.price_columns]
         for item_id in item_ids:
             if retrain==False:
