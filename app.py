@@ -6,10 +6,10 @@ import pickle as p
 import json
 import pandas as pd
 import os
+from pathlib import Path
 
 
 app = Flask(__name__)
-
 
 @app.route('/train/', methods=['POST'])
 def train():
@@ -27,7 +27,10 @@ def train():
     item_ids = [int(x.split('_')[1]) for x in pdm.price_columns]
     for item_id in item_ids:
     	item_model = pdm.models[item_id]
-    	p.dump(item_model, open('projects/{}/models/model_{}.p'.format(project_id,item_id),'wb'))
+    	MODEL_PATH = 'projects/{}/models/'.format(project_id)
+    	if not os.path.isdir(MODEL_PATH):
+    		Path(MODEL_PATH).mkdir(parents=True)
+    	p.dump(item_model, open('model_{}.p'.format(project_id,item_id),'wb'))
     response_outp['result'] = 'Success'
     
     if cv_acc == True:
@@ -63,13 +66,6 @@ def predict():
     response_outp['pred_q'] = pred_qty
     print(pred_qty)
     return jsonify(response_outp)
-
-
-
-
-
-
-
 
 @app.route('/api/', methods=['POST'])
 def makecalc():
