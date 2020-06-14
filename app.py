@@ -6,6 +6,7 @@ import pickle as p
 import json
 import pandas as pd
 import os
+from pathlib import Path
 
 
 app = Flask(__name__)
@@ -38,6 +39,7 @@ def train():
 
 	return jsonify(response_outp)
 
+
 @app.route('/predict/', methods=['POST'])
 def predict():
 	prices = request.json['prices']
@@ -65,13 +67,6 @@ def predict():
 	response_outp['pred_q'] = pred_qty
 	print(pred_qty)
 	return jsonify(response_outp)
-
-
-
-
-
-
-
 
 @app.route('/api/', methods=['POST'])
 def makecalc():
