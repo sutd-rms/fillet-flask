@@ -11,6 +11,11 @@ from pathlib import Path
 
 app = Flask(__name__)
 
+    
+@app.route("/")
+def hello():
+    return "Hello World!"
+    
 @app.route('/optimize/', methods=['POST'])
 def optimize():
     # get input
@@ -74,40 +79,40 @@ def train():
 
 @app.route('/predict/', methods=['POST'])
 def predict():
-    prices = request.json['prices']
-    project_id = request.get_json()['project_id']
+	prices = request.json['prices']
+	project_id = request.get_json()['project_id']
 
-    response_outp = {'prediction':0
-    }
+	response_outp = {'prediction':0
+	}
 
-    for k in list(prices.keys()):
-    	prices['Price_'+str(k)] = prices.pop(k)
+	for k in list(prices.keys()):
+		prices['Price_'+str(k)] = prices.pop(k)
 
-    prices = pd.DataFrame(prices, index=[0])
+	prices = pd.DataFrame(prices, index=[0])
 
-    models_list = os.listdir('projects/{}/models'.format(project_id))
-    items = [int(x.split('.')[0].split('_')[1]) for x in models_list]
+	models_list = os.listdir('projects/{}/models'.format(project_id))
+	items = [int(x.split('.')[0].split('_')[1]) for x in models_list]
 
-    pred_qty = {}
+	pred_qty = {}
 
-    for item in items:
-    	item_model = p.load(open('projects/{}/models/model_{}.p'.format(project_id,item),'rb'))
-    	prices = prices[item_model.get_booster().feature_names]
-    	pred_q = item_model.predict(prices)[0]
-    	pred_qty[item]=int(round(pred_q))
+	for item in items:
+		item_model = p.load(open('projects/{}/models/model_{}.p'.format(project_id,item),'rb'))
+		prices = prices[item_model.get_booster().feature_names]
+		pred_q = item_model.predict(prices)[0]
+		pred_qty[item]=int(round(pred_q))
 
-    response_outp['pred_q'] = pred_qty
-    print(pred_qty)
-    return jsonify(response_outp)
+	response_outp['pred_q'] = pred_qty
+	print(pred_qty)
+	return jsonify(response_outp)
 
 @app.route('/api/', methods=['POST'])
 def makecalc():
-    data = request.get_json()
-    prediction = np.array2string(model.predict(data))
+	data = request.get_json()
+	prediction = np.array2string(model.predict(data))
 
-    return jsonify(prediction)
+	return jsonify(prediction)
 
 if __name__ == '__main__':
-    modelfile = 'models/final_prediction.pickle'
-    model = p.load(open(modelfile, 'rb'))
-    app.run(debug=True, host='0.0.0.0')
+	modelfile = 'models/final_prediction.pickle'
+	model = p.load(open(modelfile, 'rb'))
+	app.run(debug=True, host='0.0.0.0')
