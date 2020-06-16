@@ -1,6 +1,6 @@
 from flask import Flask, request, redirect, url_for, flash, jsonify
 from helper_functions import optimize_floats, optimize_memory
-from core_functions import rms_pricing_model
+from core_functions import rms_pricing_model, GA
 import numpy as np
 import pickle as p
 import json
@@ -11,6 +11,33 @@ from pathlib import Path
 
 app = Flask(__name__)
 
+@app.route('/optimize/', methods=['POST'])
+def optimize():
+    # get input
+    project_id = request.get_json()['project_id']
+    constraints = request.get_json()['constraints']
+    population =  request.get_json()['population']
+    max_epoch = request.get_json()['max_epoch']
+    # load price information
+    PRICE_INFO_PATH = 'projects/{}/price_info.pkl'.format(project_id)
+    assert os.path.isfile(PRICE_INFO_PATH), 'No price info file found.'
+    price_std, price_mean, price_names = p.load(open(PRICE_INFO_PATH, 'rb'))
+    # load model
+    MODEL_PATH = 'projects/{}/models'.format(project_id)
+    assert os.path.isdir(MODEL_PATH), 'No model directory found.'
+    models_list = [x for x in os.listdir(MODEL_PATH) if x.startswith('model') ]
+    # import pdb; pdb.set_trace()
+    items = [int(x.split('.')[0].split('_')[1]) for x in models_list]
+    models = [p.load(open(MODEL_PATH+'/model_{}.p'.format(item),'rb')) for item in items]
+    # run optimization
+    Optimizer = GA()
+    Optimizer.properties(models, population, max_epoch, price_std, price_mean, price_names)
+    best_price = Optimizer.run()
+    response_outp = {}
+    response_outp['result'] = best_price
+    return jsonify(response_outp)
+
+
 @app.route('/train/', methods=['POST'])
 def train():
     data = json.loads(request.json['data'])
@@ -20,17 +47,23 @@ def train():
     response_outp = {'result':0,
     				 'cv_acc':0
     				}
-    # print(data)
     data_df = pd.DataFrame().from_dict(data)
     pdm = rms_pricing_model(data_df)
+    # save price info for optimization use
+    PRICE_INFO_PATH = 'projects/{}/'.format(project_id)
+    if not os.path.isdir(PRICE_INFO_PATH):
+        Path(PRICE_INFO_PATH).mkdir(parents=True)
+    pdm.get_and_save_price_info(PRICE_INFO_PATH+'price_info.pkl')
+    # train models
     pdm.train_all_items(retrain=True)
+    # save models
     item_ids = [int(x.split('_')[1]) for x in pdm.price_columns]
     for item_id in item_ids:
     	item_model = pdm.models[item_id]
     	MODEL_PATH = 'projects/{}/models/'.format(project_id)
     	if not os.path.isdir(MODEL_PATH):
     		Path(MODEL_PATH).mkdir(parents=True)
-    	p.dump(item_model, open('model_{}.p'.format(project_id,item_id),'wb'))
+    	p.dump(item_model, open(MODEL_PATH+'model_{}.p'.format(item_id),'wb'))
     response_outp['result'] = 'Success'
     
     if cv_acc == True:
