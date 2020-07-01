@@ -154,12 +154,6 @@ class rms_pricing_model():
         
         self.models = {}
         
-
-        # Ingest Correctly Shaped Data
-        # sales_data = pd.read_csv(
-        #     data_filepath,
-        #     usecols=['Wk', 'Tier', 'Store', 'Item_ID', 'Qty_', 'Price_'])
-
         # Ingest Correctly Shaped Data
         sales_data = data[['Wk', 'Tier', 'Store', 'Item_ID', 'Qty_', 'Price_']].copy()
 
@@ -226,7 +220,10 @@ class rms_pricing_model():
         }
 
         url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_2_cv'
-        result = requests.get(url, params=payload, data=base64.b64encode(zlib.compress(json.dumps(data).encode('utf-8'))))
+        result = requests.get(
+            url, params=payload,
+            data=base64.b64encode(zlib.compress(json.dumps(data).encode('utf-8')))
+            )
         print(item_id, 'cv status code', result.status_code)
         outp = result.json()
         outp['item_id'] = int(item_id)
