@@ -1,5 +1,5 @@
 from flask import Flask, request, redirect, url_for, flash, jsonify
-from helper_functions import *
+from helper_functions import optimize_floats, optimize_memory
 from core_functions import rms_pricing_model, GA
 import numpy as np
 import pickle as p
@@ -33,7 +33,11 @@ def optimize():
     models_list = [x for x in os.listdir(MODEL_PATH) if x.startswith('model') ]
     # import pdb; pdb.set_trace()
     items = [int(x.split('.')[0].split('_')[1]) for x in models_list]
+
+
     models = [p.load(open(MODEL_PATH+'/model_{}.p'.format(item),'rb')) for item in items]
+
+    
     # run optimization
     Optimizer = GA()
     Optimizer.properties(models, population, max_epoch, price_std, price_mean, price_names)
@@ -52,7 +56,9 @@ def optimize():
 @app.route('/train/', methods=['POST'])
 def train():
 
-    data, cv_acc, project_id = parse_training_request(request)
+    data = json.loads(request.json['data'])
+    cv_acc = request.get_json()['cv_acc']
+    project_id = request.get_json()['project_id']
 
     response_outp = {'result':0,
     				 'cv_acc':0
@@ -73,7 +79,11 @@ def train():
     	MODEL_PATH = 'projects/{}/models/'.format(project_id)
     	if not os.path.isdir(MODEL_PATH):
     		Path(MODEL_PATH).mkdir(parents=True)
+
+
     	p.dump(item_model, open(MODEL_PATH+'model_{}.p'.format(item_id),'wb'))
+
+
     response_outp['result'] = 'Success'
     
     if cv_acc == True:
