@@ -1,5 +1,5 @@
 from flask import Flask, request, redirect, url_for, flash, jsonify
-from helper_functions import optimize_floats, optimize_memory
+from helper_functions import *
 from core_functions import rms_pricing_model, GA
 import numpy as np
 import pickle as p
@@ -51,9 +51,8 @@ def optimize():
 
 @app.route('/train/', methods=['POST'])
 def train():
-    data = json.loads(request.json['data'])
-    cv_acc = request.get_json()['cv_acc']
-    project_id = request.get_json()['project_id']
+
+    data, cv_acc, project_id = parse_training_request(request)
 
     response_outp = {'result':0,
     				 'cv_acc':0
