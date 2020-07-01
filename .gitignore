@@ -1,2 +1,7 @@
 
 data_all.csv
+keys.json
+*.p
+*.pyc
+projects/1/price_info.pkl
+.ipynb_checkpoints/Test Environment-checkpoint.ipynb

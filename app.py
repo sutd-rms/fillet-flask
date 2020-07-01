@@ -38,8 +38,14 @@ def optimize():
     Optimizer = GA()
     Optimizer.properties(models, population, max_epoch, price_std, price_mean, price_names)
     best_price = Optimizer.run()
+
+    # Send result as Dict to avoid confusion
+    best_price_dict = {}
+    for item, price in zip(items, best_price):
+        best_price_dict[str(item)] = round(price,2)
+
     response_outp = {}
-    response_outp['result'] = best_price
+    response_outp['result'] = best_price_dict
     return jsonify(response_outp)
 
 
