@@ -47,9 +47,6 @@ def optimize():
 		item_model.load_model(MODEL_PATH+f'/model_{item}.json')
 		models.append(item_model)
 
-	# models = [p.load(open(MODEL_PATH+'/model_{}.p'.format(item),'rb')) for item in items]
-
-	
 	# run optimization
 	Optimizer = GA()
 	Optimizer.properties(models, population, max_epoch, price_std, price_mean, price_names)
@@ -82,18 +79,32 @@ def train():
 	if not os.path.isdir(PRICE_INFO_PATH):
 		Path(PRICE_INFO_PATH).mkdir(parents=True)
 	pdm.get_and_save_price_info(PRICE_INFO_PATH+'price_info.pkl')
+	
+
+
 	# train models
 	pdm.train_all_items(retrain=True)
+
 	# save models
 	item_ids = [int(x.split('_')[1]) for x in pdm.price_columns]
 	for item_id in item_ids:
-		item_model = pdm.models[item_id]
-		MODEL_PATH = 'projects/{}/models/'.format(project_id)
+		item_model_json = pdm.models[item_id]
+		
+		MODEL_PATH = f'projects/{project_id}/models/'
 		if not os.path.isdir(MODEL_PATH):
 			Path(MODEL_PATH).mkdir(parents=True)
 
-		item_model.save_model(MODEL_PATH+f'model_{item_id}.json')
+		with open(MODEL_PATH+f'model_{item_id}.json','w') as f:
+			json.dump(item_model_json,f)
 
+		# MODEL_PATH = 'projects/{}/models/'.format(project_id)
+		# if not os.path.isdir(MODEL_PATH):
+		# 	Path(MODEL_PATH).mkdir(parents=True)
+
+		# item_model.save_model(MODEL_PATH+f'model_{item_id}.json')
+
+
+	
 
 	response_outp['result'] = 'Success'
 	
