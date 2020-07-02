@@ -207,6 +207,7 @@ class rms_pricing_model():
 
         Week = sales_data_wide_clean['Wk'].copy()
         X = sales_data_wide_clean[Price_columns].copy()
+        X = X.reindex(sorted(X.columns), axis=1)
         y = sales_data_wide_clean[target_column].copy()
 
         payload = {
@@ -314,6 +315,7 @@ class rms_pricing_model():
         target_column = target_colname
 
         X = sales_data_wide_clean[Price_columns].copy()
+        X = X.reindex(sorted(X.columns), axis=1)
         y = sales_data_wide_clean[target_column].copy()
 
         model = XGBRegressor()
