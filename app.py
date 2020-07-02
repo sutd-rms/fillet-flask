@@ -41,8 +41,13 @@ def optimize():
 	# import pdb; pdb.set_trace()
 	items = [int(x.split('.')[0].split('_')[1]) for x in models_list]
 
+	models = []
+	for item in items:
+		item_model = XGBRegressor()
+		item_model.load_model(MODEL_PATH+f'/model_{item}.json')
+		models.append(item_model)
 
-	models = [p.load(open(MODEL_PATH+'/model_{}.p'.format(item),'rb')) for item in items]
+	# models = [p.load(open(MODEL_PATH+'/model_{}.p'.format(item),'rb')) for item in items]
 
 	
 	# run optimization

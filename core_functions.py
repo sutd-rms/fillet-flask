@@ -119,8 +119,8 @@ class GA(object):
         newparents = []
         pop = len(self.best_p)
         
-        print("{}th generation" .format(self.iterated))
-        print("best solution so far: {}".format(highest_fitness))
+        # print("{}th generation" .format(self.iterated))
+        # print("best solution so far: {}".format(highest_fitness))
         self.best_price = highest_price
 
         # randomly shuffle the best parents
@@ -228,62 +228,6 @@ class rms_pricing_model():
         print(item_id, 'cv status code', result.status_code)
         outp = result.json()
         outp['item_id'] = int(item_id)
-
-        # logo = LeaveOneGroupOut()
-        # n_splits = logo.get_n_splits(groups=Week)
-
-        # r2_total = 0
-        # mae_total = 0
-        # rmse_total = 0
-
-        # target_splits = 8
-        # n_actual_splits = 0
-        # nth_split = 0
-
-        # for train_index, test_index in logo.split(X, y, Week):
-            
-        #     # probability to run this week on cross-validation
-        #     # This logic ensures only 4 cv splits are done to save time
-        #     cv_prob = max(0,(target_splits - n_actual_splits)/(n_splits-nth_split))
-        #     nth_split += 1
-
-        #     if np.random.random()>cv_prob:
-        #         continue
-
-        #     X_train, X_test = X.iloc[train_index], X.iloc[test_index]
-        #     y_train, y_test = y.iloc[train_index], y.iloc[test_index]
-
-        #     y_train = np.asarray(y_train).ravel()
-        #     y_test = np.asarray(y_test).ravel()
-
-        #     test_model = XGBRegressor()
-        #     test_model.fit(X_train, y_train)
-        #     y_pred = test_model.predict(X_test)
-
-        #     r2_total += r2_score(y_true=y_test, y_pred=y_pred)
-        #     mae_total += mean_absolute_error(y_true=y_test, y_pred=y_pred)
-        #     rmse_total += np.sqrt(
-        #         mean_squared_error(y_true=y_test, y_pred=y_pred))
-
-        #     n_actual_splits += 1
-
-        # n_splits = n_actual_splits
-
-        # item_id = item_id
-        # avg_sales = y.mean().values[0]
-        # r2 = r2_total / n_splits
-        # mae = mae_total / n_splits
-        # mpe = mae / avg_sales
-        # rmse = rmse_total / n_splits
-
-        # outp = {
-        #     'item_id': item_id,
-        #     'avg_sales': avg_sales,
-        #     'r2_score': r2,
-        #     'mae_score': mae,
-        #     'mpe_score': mpe,
-        #     'rmse_score': rmse
-        # }
 
         return outp
 
