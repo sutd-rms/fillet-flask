@@ -264,6 +264,10 @@ class rms_pricing_model():
 		X = X.reindex(sorted(X.columns), axis=1)
 		y = sales_data_wide_clean[target_column].copy()
 
+		payload = {
+		'code':HOST_KEY,
+		}
+
 		data = {
 				'X':X.to_json(),
 				'y':y.to_json()
