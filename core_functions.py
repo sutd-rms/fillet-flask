@@ -243,6 +243,9 @@ class rms_pricing_model():
 
 	def get_model(self, item_id):
 
+		with open('keys.json') as f:
+			HOST_KEY = json.load(f)['host_key']
+
 		sales_data_wide_clean = self.data.copy()
 
 		target_colname = 'Qty_' + str(item_id)
@@ -261,10 +264,6 @@ class rms_pricing_model():
 		X = X.reindex(sorted(X.columns), axis=1)
 		y = sales_data_wide_clean[target_column].copy()
 
-		payload = {
-		'code':HOST_KEY,
-		}
-
 		data = {
 				'X':X.to_json(),
 				'y':y.to_json()
@@ -272,7 +271,7 @@ class rms_pricing_model():
 
 		url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_1_train'
 		result = requests.get(url, params=payload,
-			data=base64.b64encode(zlib.compress(json.dumps(data).encode('utf-8')))
+			data=zlib.compress(json.dumps(data).encode('utf-8'))
 			)
 		model_json = result.json()['model_json']  
 
