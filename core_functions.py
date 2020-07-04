@@ -223,6 +223,9 @@ class rms_pricing_model():
 		'code':HOST_KEY,
 		}
 
+		if not os.path.isdir('temp'):
+			Path('temp').mkdir(parents=True)
+
 		X.to_parquet('temp/X.parquet')
 		y.to_parquet('temp/y.parquet')
 		Week.to_parquet('temp/Wk.parquet')
@@ -247,6 +250,10 @@ class rms_pricing_model():
 			)
 		outp = result.json()
 		outp['item_id'] = int(item_id)
+
+		files['X_file'].close()
+		files['y_file'].close()
+		files['Wk_file'].close()
 
 		return outp
 
@@ -294,6 +301,9 @@ class rms_pricing_model():
 		payload = {
 		'code':HOST_KEY,
 		}
+
+		if not os.path.isdir('temp'):
+			Path('temp').mkdir(parents=True)
 
 		X.to_parquet('temp/X.parquet')
 		y.to_parquet('temp/y.parquet')
