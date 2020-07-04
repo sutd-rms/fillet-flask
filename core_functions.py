@@ -262,8 +262,8 @@ class rms_pricing_model():
 		y = sales_data_wide_clean[target_column].copy()
 
 		payload = {
-				'code':'LPIjTqDABBWPxUpSXfkzn6DK8ksx3adl2I3cLdvkCjp0VAnaNjRhsA==',
-			}
+		'code':HOST_KEY,
+		}
 
 		data = {
 				'X':X.to_json(),
