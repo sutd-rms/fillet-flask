@@ -11,9 +11,9 @@ from xgboost import XGBRegressor
 
 import logging
 
-app = Flask(__name__)
+app = Flask('fillet-flask')
 logging.basicConfig(
-	level=logging.DEBUG,
+	level=logging.INFO,
 	format='%(asctime)s | %(levelname)-8s | %(name)-25s | %(threadName)-16s : %(message).80s'
 	)
 
@@ -83,19 +83,19 @@ def train():
 
 
 	# train models
-	pdm.train_all_items(retrain=True)
+	pdm.train_all_items(proj_id=project_id,retrain=True)
 
 	# save models
 	item_ids = [int(x.split('_')[1]) for x in pdm.price_columns]
-	for item_id in item_ids:
-		item_model_json = pdm.models[item_id]
+	# for item_id in item_ids:
+	# 	item_model_json = pdm.models[item_id]
 		
-		MODEL_PATH = f'projects/{project_id}/models/'
-		if not os.path.isdir(MODEL_PATH):
-			Path(MODEL_PATH).mkdir(parents=True)
+	# 	MODEL_PATH = f'projects/{project_id}/models/'
+	# 	if not os.path.isdir(MODEL_PATH):
+	# 		Path(MODEL_PATH).mkdir(parents=True)
 
-		with open(MODEL_PATH+f'model_{item_id}.json','w') as f:
-			json.dump(item_model_json,f)
+	# 	with open(MODEL_PATH+f'model_{item_id}.json','w') as f:
+	# 		json.dump(item_model_json,f)
 
 		# MODEL_PATH = 'projects/{}/models/'.format(project_id)
 		# if not os.path.isdir(MODEL_PATH):

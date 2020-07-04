@@ -13,8 +13,17 @@ import operator
 import random
 import base64
 import zlib
+import os
+from pathlib import Path
+
+import logging
+log = logging.getLogger('fillet-flask.sub')
 
 # < ---------------------- Configuration ---------------------->
+
+
+
+
 master_data_input_path = 'data/data_all.csv'
 
 class GA(object):
@@ -203,9 +212,9 @@ class rms_pricing_model():
 			col for col in sales_data_wide_clean.columns
 			if col.startswith('Price')
 		]
-		target_column = target_colname
+		target_column = [target_colname]
 
-		Week = sales_data_wide_clean['Wk'].copy()
+		Week = sales_data_wide_clean[['Wk']].copy()
 		X = sales_data_wide_clean[Price_columns].copy()
 		X = X.reindex(sorted(X.columns), axis=1)
 		y = sales_data_wide_clean[target_column].copy()
@@ -214,16 +223,27 @@ class rms_pricing_model():
 		'code':HOST_KEY,
 		}
 
-		data = {
-			'X':X.to_json(),
-			'y':y.to_json(),
-			'Week':Week.to_json()
-		}
+		X.to_parquet('temp/X.parquet')
+		y.to_parquet('temp/y.parquet')
+		Week.to_parquet('temp/Wk.parquet')
+
+		files = {'X_file': open('temp/X.parquet', 'rb'),
+				 'y_file': open('temp/y.parquet', 'rb'),
+				 'Wk_file': open('temp/Wk.parquet', 'rb'),
+				 }
+
+		# data = {
+		# 	'X':X.to_json(),
+		# 	'y':y.to_json(),
+		# 	'Week':Week.to_json()
+		# }
 
 		url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_2_cv'
+		# url = 'http://localhost:7071/api/fillet_func_2_cv'
 		result = requests.get(
 			url, params=payload,
-			data=base64.b64encode(zlib.compress(json.dumps(data).encode('utf-8')))
+			files=files
+			# data=base64.b64encode(zlib.compress(json.dumps(data).encode('utf-8')))
 			)
 		outp = result.json()
 		outp['item_id'] = int(item_id)
@@ -241,10 +261,17 @@ class rms_pricing_model():
 			perf_df = perf_df.append(item_perf, ignore_index=True)
 		return perf_df
 
-	def get_model(self, item_id):
+	def get_model(self, item_id, proj_id):
+
+		log.info(f'TRAINING ITEM_ID {item_id} MODEL')
 
 		with open('keys.json') as f:
 			HOST_KEY = json.load(f)['host_key']
+
+
+
+
+
 
 		sales_data_wide_clean = self.data.copy()
 
@@ -258,7 +285,7 @@ class rms_pricing_model():
 			col for col in sales_data_wide_clean.columns
 			if col.startswith('Price')
 		]
-		target_column = target_colname
+		target_column = [target_colname]
 
 		X = sales_data_wide_clean[Price_columns].copy()
 		X = X.reindex(sorted(X.columns), axis=1)
@@ -268,16 +295,32 @@ class rms_pricing_model():
 		'code':HOST_KEY,
 		}
 
-		data = {
-				'X':X.to_json(),
-				'y':y.to_json()
-			}
+		X.to_parquet('temp/X.parquet')
+		y.to_parquet('temp/y.parquet')
+
+		files = {'X_file': open('temp/X.parquet', 'rb'),
+				 'y_file': open('temp/y.parquet', 'rb')}
+
+		# data = {
+		# 		'X':X.to_json(),
+		# 		'y':y.to_json()
+		# 	}
 
 		url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_1_train'
+		# url = 'http://localhost:7071/api/fillet_func_1_train'
+		
 		result = requests.get(url, params=payload,
-			data=zlib.compress(json.dumps(data).encode('utf-8'))
+			files=files
 			)
+		# result = requests.get(url, params=payload,
+		# 	data=zlib.compress(json.dumps(data).encode('utf-8'))
+		# 	)
 		model_json = result.json()['model_json']  
+
+
+
+
+
 
 
 		# model = XGBRegressor()
@@ -285,15 +328,23 @@ class rms_pricing_model():
 		
 		self.models[item_id] = model_json
 
+		MODEL_PATH = f'projects/{proj_id}/models/'
+		if not os.path.isdir(MODEL_PATH):
+			Path(MODEL_PATH).mkdir(parents=True)
 
+		with open(MODEL_PATH+f'model_{item_id}.json','w') as f:
+			json.dump(model_json,f)
+
+		files['X_file'].close()
+		files['y_file'].close()
 
 		return model_json
 	
-	def train_all_items(self, retrain=True):
+	def train_all_items(self, proj_id, retrain=True):
 		item_ids = [int(x.split('_')[1]) for x in self.price_columns]
 		for item_id in item_ids:
 			if retrain==False:
 				if item_id not in self.models.keys():
-					self.get_model(item_id)
+					self.get_model(item_id,proj_id)
 			else:
-				self.get_model(item_id)
+				self.get_model(item_id,proj_id)
