@@ -4,7 +4,7 @@ import numpy as np
 from scipy import stats
 import pickle as p
 
-from xgboost import XGBRegressor
+# from xgboost import XGBRegressor
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 from sklearn.model_selection import LeaveOneGroupOut
 
@@ -19,144 +19,144 @@ from pathlib import Path
 import logging
 log = logging.getLogger('fillet-flask.sub')
 
-# < ---------------------- Configuration ---------------------->
 
 
 
 
-master_data_input_path = 'data/data_all.csv'
+# class GA(object):
 
-class GA(object):
+# 	#initialize variables and lists
+# 	def __init__(self): 
 
-	#initialize variables and lists
-	def __init__(self): 
+# 		self.models = []
+# 		self.price_std = []
+# 		self.price_mean = []
+# 		self.parents = []
+# 		self.newparents = []
+# 		self.bests = []
+# 		self.best_p = [] 
+# 		self.price_names = []
+# 		self.iterated = 1
+# 		self.population = 0
+# 		self.epoch = 0
+# 		self.best_price = []
 
-		self.models = []
-		self.price_std = []
-		self.price_mean = []
-		self.parents = []
-		self.newparents = []
-		self.bests = []
-		self.best_p = [] 
-		self.price_names = []
-		self.iterated = 1
-		self.population = 0
-		self.epoch = 0
-		self.best_price = []
+# 		# increase max recursion for long stack
+# 		iMaxStackSize = 15000
+# 		sys.setrecursionlimit(iMaxStackSize)
 
-		# increase max recursion for long stack
-		iMaxStackSize = 15000
-		sys.setrecursionlimit(iMaxStackSize)
+# 	# create the initial population 
+# 	def initialize(self):
+# 		self.num_item = self.price_mean.shape[0]
+# 		for i in range(self.population):
+# 			parent = (np.random.standard_normal(self.num_item)*self.price_std*2 + self.price_mean).tolist()
+# 			self.parents.append(parent)
 
-	# create the initial population 
-	def initialize(self):
-		self.num_item = self.price_mean.shape[0]
-		for i in range(self.population):
-			parent = (np.random.standard_normal(self.num_item)*self.price_std*2 + self.price_mean).tolist()
-			self.parents.append(parent)
+# 	# set the details of this problem
+# 	def properties(self, models, population, max_epoch, price_std, price_mean, price_names):
 
-	# set the details of this problem
-	def properties(self, models, population, max_epoch, price_std, price_mean, price_names):
+# 		self.models = models
+# 		self.population = population
+# 		self.epoch = max_epoch
+# 		self.price_std = price_std
+# 		self.price_mean = price_mean
+# 		self.price_names = price_names
+# 		self.initialize()
 
-		self.models = models
-		self.population = population
-		self.epoch = max_epoch
-		self.price_std = price_std
-		self.price_mean = price_mean
-		self.price_names = price_names
-		self.initialize()
-
-	# calculate the fitness function for X
-	def fitness(self, prices):
+# 	# calculate the fitness function for X
+# 	def fitness(self, prices):
 		
-		df = pd.DataFrame(prices, columns = self.price_names) 
-		quantities = np.zeros((self.population, len(self.models)))
-		for i in range(len(self.models)):
-			quantities[:, i] = self.models[i].predict(df)
-		fitness = np.zeros((self.population))
-		for i in range(len(self.models)):
-			fitness += prices[:, i]*quantities[:, i]
+# 		df = pd.DataFrame(prices, columns = self.price_names) 
+# 		quantities = np.zeros((self.population, len(self.models)))
+# 		for i in range(len(self.models)):
+# 			quantities[:, i] = self.models[i].predict(df)
+# 		fitness = np.zeros((self.population))
+# 		for i in range(len(self.models)):
+# 			fitness += prices[:, i]*quantities[:, i]
 		
-		return fitness
+# 		return fitness
    
-	# run generations of GA
-	def evaluation(self):
+# 	# run generations of GA
+# 	def evaluation(self):
 
-		# loop through parents and calculate fitness
-		best_pop = self.population // 2
-		ft = self.fitness(np.asarray(self.parents))
-		for i in range(len(self.parents)):
-			parent = self.parents[i]
-			self.bests.append((ft[i], parent))
+# 		# loop through parents and calculate fitness
+# 		best_pop = self.population // 2
+# 		ft = self.fitness(np.asarray(self.parents))
+# 		for i in range(len(self.parents)):
+# 			parent = self.parents[i]
+# 			self.bests.append((ft[i], parent))
 
-		# sort the fitness list by fitness
-		self.bests.sort(key=operator.itemgetter(0), reverse=True)
-		self.best_p = self.bests[:best_pop]
-		highest_fitness = self.best_p[0][0]
-		highest_price = self.best_p[0][1]
-		self.best_p = [x[1] for x in self.best_p]
+# 		# sort the fitness list by fitness
+# 		self.bests.sort(key=operator.itemgetter(0), reverse=True)
+# 		self.best_p = self.bests[:best_pop]
+# 		highest_fitness = self.best_p[0][0]
+# 		highest_price = self.best_p[0][1]
+# 		self.best_p = [x[1] for x in self.best_p]
 		
-		return highest_fitness, highest_price
+# 		return highest_fitness, highest_price
 
-	# mutate children after certain condition
-	def mutation(self, ch):
+# 	# mutate children after certain condition
+# 	def mutation(self, ch):
 
-		for i in range(len(ch)):
-			if random.uniform(0, 1) > 0.95:
-				ch[i] = np.random.standard_normal(1)[0]*self.price_std[i]*2 + self.price_mean[i]
-		return ch
+# 		for i in range(len(ch)):
+# 			if random.uniform(0, 1) > 0.95:
+# 				ch[i] = np.random.standard_normal(1)[0]*self.price_std[i]*2 + self.price_mean[i]
+# 		return ch
 
-	# crossover two parents to produce two children by miixing them under random ration each time
-	def crossover(self, ch1, ch2):
+# 	# crossover two parents to produce two children by miixing them under random ration each time
+# 	def crossover(self, ch1, ch2):
 
-		threshold = random.randint(1, len(ch1)-1)
-		tmp1 = ch1[threshold:]
-		tmp2 = ch2[threshold:]
-		ch1 = ch1[:threshold]
-		ch2 = ch2[:threshold]
-		ch1.extend(tmp2)
-		ch2.extend(tmp1)
+# 		threshold = random.randint(1, len(ch1)-1)
+# 		tmp1 = ch1[threshold:]
+# 		tmp2 = ch2[threshold:]
+# 		ch1 = ch1[:threshold]
+# 		ch2 = ch2[:threshold]
+# 		ch1.extend(tmp2)
+# 		ch2.extend(tmp1)
 
-		return ch1, ch2
+# 		return ch1, ch2
 
-	# run the GA algorithm
-	def run(self):
-		if self.epoch < self.iterated:
-			return self.best_price
-		# run the evaluation once
-		highest_fitness, highest_price = self.evaluation()
-		newparents = []
-		pop = len(self.best_p)
+# 	# run the GA algorithm
+# 	def run(self):
+# 		if self.epoch < self.iterated:
+# 			return self.best_price
+# 		# run the evaluation once
+# 		highest_fitness, highest_price = self.evaluation()
+# 		newparents = []
+# 		pop = len(self.best_p)
 		
-		# print("{}th generation" .format(self.iterated))
-		# print("best solution so far: {}".format(highest_fitness))
-		self.best_price = highest_price
+# 		# print("{}th generation" .format(self.iterated))
+# 		# print("best solution so far: {}".format(highest_fitness))
+# 		self.best_price = highest_price
 
-		# randomly shuffle the best parents
-		random.shuffle(self.best_p)
-		for i in range(0, pop):
-			if i < pop-1:
-				r1 = self.best_p[i]
-				r2 = self.best_p[i+1]
-				nchild1, nchild2 = self.crossover(r1, r2)
-				newparents.append(nchild1)
-				newparents.append(nchild2)
-			else:
-				r1 = self.best_p[i]
-				r2 = self.best_p[0]
-				nchild1, nchild2 = self.crossover(r1, r2)
-				newparents.append(nchild1)
-				newparents.append(nchild2)
+# 		# randomly shuffle the best parents
+# 		random.shuffle(self.best_p)
+# 		for i in range(0, pop):
+# 			if i < pop-1:
+# 				r1 = self.best_p[i]
+# 				r2 = self.best_p[i+1]
+# 				nchild1, nchild2 = self.crossover(r1, r2)
+# 				newparents.append(nchild1)
+# 				newparents.append(nchild2)
+# 			else:
+# 				r1 = self.best_p[i]
+# 				r2 = self.best_p[0]
+# 				nchild1, nchild2 = self.crossover(r1, r2)
+# 				newparents.append(nchild1)
+# 				newparents.append(nchild2)
 
-		# mutate the new children and potential parents to ensure global optima found
-		for i in range(len(newparents)):
-			newparents[i] = self.mutation(newparents[i])	
+# 		# mutate the new children and potential parents to ensure global optima found
+# 		for i in range(len(newparents)):
+# 			newparents[i] = self.mutation(newparents[i])	
 
-		self.parents = newparents
-		self.bests = []
-		self.best_p = []
-		self.iterated += 1
-		return self.run()
+# 		self.parents = newparents
+# 		self.bests = []
+# 		self.best_p = []
+# 		self.iterated += 1
+# 		return self.run()
+
+
+
 
 class rms_pricing_model():
 	def __init__(self, data):

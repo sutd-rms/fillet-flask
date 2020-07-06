@@ -7,7 +7,7 @@ import json
 import pandas as pd
 import os, requests
 from pathlib import Path
-from xgboost import XGBRegressor
+# from xgboost import XGBRegressor
 
 import logging
 
@@ -22,44 +22,44 @@ logging.basicConfig(
 def hello():
 	return "Hello World!"
 	
-@app.route('/optimize/', methods=['POST'])
-def optimize():
-	app.logger.info('OPTIMIZE REQUEST RECEIVED')
-	# get input
-	project_id = request.get_json()['project_id']
-	constraints = request.get_json()['constraints']
-	population =  request.get_json()['population']
-	max_epoch = request.get_json()['max_epoch']
-	# load price information
-	PRICE_INFO_PATH = 'projects/{}/price_info.pkl'.format(project_id)
-	assert os.path.isfile(PRICE_INFO_PATH), 'No price info file found.'
-	price_std, price_mean, price_names = p.load(open(PRICE_INFO_PATH, 'rb'))
-	# load model
-	MODEL_PATH = 'projects/{}/models'.format(project_id)
-	assert os.path.isdir(MODEL_PATH), 'No model directory found.'
-	models_list = [x for x in os.listdir(MODEL_PATH) if x.startswith('model') ]
-	# import pdb; pdb.set_trace()
-	items = [int(x.split('.')[0].split('_')[1]) for x in models_list]
+# @app.route('/optimize/', methods=['POST'])
+# def optimize():
+# 	app.logger.info('OPTIMIZE REQUEST RECEIVED')
+# 	# get input
+# 	project_id = request.get_json()['project_id']
+# 	constraints = request.get_json()['constraints']
+# 	population =  request.get_json()['population']
+# 	max_epoch = request.get_json()['max_epoch']
+# 	# load price information
+# 	PRICE_INFO_PATH = 'projects/{}/price_info.pkl'.format(project_id)
+# 	assert os.path.isfile(PRICE_INFO_PATH), 'No price info file found.'
+# 	price_std, price_mean, price_names = p.load(open(PRICE_INFO_PATH, 'rb'))
+# 	# load model
+# 	MODEL_PATH = 'projects/{}/models'.format(project_id)
+# 	assert os.path.isdir(MODEL_PATH), 'No model directory found.'
+# 	models_list = [x for x in os.listdir(MODEL_PATH) if x.startswith('model') ]
+# 	# import pdb; pdb.set_trace()
+# 	items = [int(x.split('.')[0].split('_')[1]) for x in models_list]
 
-	models = []
-	for item in items:
-		item_model = XGBRegressor()
-		item_model.load_model(MODEL_PATH+f'/model_{item}.json')
-		models.append(item_model)
+# 	models = []
+# 	for item in items:
+# 		item_model = XGBRegressor()
+# 		item_model.load_model(MODEL_PATH+f'/model_{item}.json')
+# 		models.append(item_model)
 
-	# run optimization
-	Optimizer = GA()
-	Optimizer.properties(models, population, max_epoch, price_std, price_mean, price_names)
-	best_price = Optimizer.run()
+# 	Optimizer = GA()
+# 	Optimizer.properties(models, population, max_epoch, price_std, price_mean, price_names)
+# 	best_price = Optimizer.run()
 
-	# Send result as Dict to avoid confusion
-	best_price_dict = {}
-	for item, price in zip(items, best_price):
-		best_price_dict[str(item)] = round(price,2)
+# 	# Send result as Dict to avoid confusion
+# 	best_price_dict = {}
+# 	for item, price in zip(items, best_price):
+# 		best_price_dict[str(item)] = round(price,2)
+# 	# run optimization
 
-	response_outp = {}
-	response_outp['result'] = best_price_dict
-	return jsonify(response_outp)
+# 	response_outp = {}
+# 	response_outp['result'] = best_price_dict
+# 	return jsonify(response_outp)
 
 
 @app.route('/train/', methods=['POST'])
