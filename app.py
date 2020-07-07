@@ -119,8 +119,10 @@ def train():
 @app.route('/predict/', methods=['POST'])
 def predict():
 	app.logger.info('PREDICT REQUEST RECEIVED')
-	with open('keys.json') as f:
-			HOST_KEY = json.load(f)['host_key']
+	# with open('keys.json') as f:
+	# 		HOST_KEY = json.load(f)['host_key']
+
+	HOST_KEY = os.environ['FUNCTIONS_KEY']                                         	
 
 	prices = request.json['prices']
 	project_id = request.get_json()['project_id']

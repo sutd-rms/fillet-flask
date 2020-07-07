@@ -197,8 +197,10 @@ class rms_pricing_model():
 
 	def get_performance(self, item_id):
 
-		with open('keys.json') as f:
-			HOST_KEY = json.load(f)['host_key']
+		# with open('keys.json') as f:
+		# 	HOST_KEY = json.load(f)['host_key']
+		
+		HOST_KEY = os.environ['FUNCTIONS_KEY']                                         	
 
 		sales_data_wide_clean = self.data.copy()
 
@@ -272,13 +274,10 @@ class rms_pricing_model():
 
 		log.info(f'TRAINING ITEM_ID {item_id} MODEL')
 
-		with open('keys.json') as f:
-			HOST_KEY = json.load(f)['host_key']
+		# with open('keys.json') as f:
+		# 	HOST_KEY = json.load(f)['host_key']
 
-
-
-
-
+		HOST_KEY = os.environ['FUNCTIONS_KEY']                                         	
 
 		sales_data_wide_clean = self.data.copy()
 
