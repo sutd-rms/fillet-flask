@@ -76,7 +76,7 @@ def train():
 	data_df = pd.DataFrame().from_dict(data)
 	pdm = rms_pricing_model(data_df)
 	# save price info for optimization use
-	HOME = os.environ['%HOME%']
+	HOME = os.environ['HOME']
 	PRICE_INFO_PATH = HOME+f'/site/wwwroot/projects/{project_id}/'
 	if not os.path.isdir(PRICE_INFO_PATH):
 		Path(PRICE_INFO_PATH).mkdir(parents=True)
@@ -140,7 +140,7 @@ def predict():
 
 	models_json_list = []
 
-	HOME = os.environ['%HOME%']
+	HOME = os.environ['HOME']
 	for item in items:
 		with open(HOME+f'/site/wwwroot/projects/{project_id}/models/model_{item}.json') as f:
 			model_json = json.load(f)
