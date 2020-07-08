@@ -8,3 +8,8 @@ projects/1/price_info.pkl
 *.json
 *.parquet
 .ipynb_checkpoints/Test Environment-Azure-checkpoint.ipynb
+.ipynb_checkpoints/Concurrency 3-checkpoint.ipynb
+.ipynb_checkpoints/Concurrency 1-checkpoint.ipynb
+.ipynb_checkpoints/Concurrency 2-checkpoint.ipynb
+.ipynb_checkpoints/Untitled-checkpoint.ipynb
+.ipynb_checkpoints/Untitled-checkpoint.ipynb
