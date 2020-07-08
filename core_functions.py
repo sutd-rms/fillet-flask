@@ -199,6 +199,8 @@ class rms_pricing_model():
 
 		# with open('keys.json') as f:
 		# 	HOST_KEY = json.load(f)['host_key']
+
+		log.info(f'CROSS VALIDATING ITEM_ID {item_id} MODEL')
 		
 		HOST_KEY = os.environ['FUNCTIONS_KEY']                                         	
 

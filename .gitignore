@@ -7,3 +7,4 @@ projects/1/price_info.pkl
 .ipynb_checkpoints/Test Environment-checkpoint.ipynb
 *.json
 *.parquet
+.ipynb_checkpoints/Test Environment-Azure-checkpoint.ipynb
