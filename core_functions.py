@@ -340,7 +340,7 @@ class rms_pricing_model():
 		self.models[item_id] = model_json
 
 		HOME = os.environ['HOME_SITE']
-		MODEL_PATH = f'/projects/{proj_id}/models/'
+		MODEL_PATH = HOME+f'/projects/{proj_id}/models/'
 		if not os.path.isdir(MODEL_PATH):
 			Path(MODEL_PATH).mkdir(parents=True)
 
