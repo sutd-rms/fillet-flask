@@ -15,6 +15,7 @@ import base64
 import zlib
 import os
 from pathlib import Path
+import gc
 
 import logging
 log = logging.getLogger('fillet-flask.sub')
@@ -166,6 +167,9 @@ class rms_pricing_model():
 		# Ingest Correctly Shaped Data
 		sales_data = data[['Wk', 'Tier', 'Store', 'Item_ID', 'Qty_', 'Price_']].copy()
 
+		del data
+		gc.collect()
+
 		# Optimize Memory Usage by Downcasting etc.
 		sales_data = optimize_memory(sales_data)
 
@@ -173,6 +177,10 @@ class rms_pricing_model():
 		sales_data_wide = sales_data.set_index(
 			['Wk', 'Tier', 'Store',
 			 'Item_ID']).unstack(level=-1).reset_index().copy()
+
+		del sales_data
+		gc.collect()
+
 		sales_data_wide.columns = [
 			''.join(str(i) for i in col).strip()
 			for col in sales_data_wide.columns.values
@@ -183,6 +191,10 @@ class rms_pricing_model():
 		# # Remove Store,Weeks with Nan Sales for Some Items ( Not sure if we want to do this or replace with 0 )
 		# # Drops about 421 rows, hence seems reasonable to remove
 		sales_data_wide_clean = sales_data_wide.dropna(axis=0).copy()
+
+		del sales_data_wide
+		gc.collect()
+
 		self.data = sales_data_wide_clean
 		self.price_columns = [
 		col for col in sales_data_wide_clean.columns if col.startswith('Price')
@@ -340,6 +352,7 @@ class rms_pricing_model():
 		self.models[item_id] = model_json
 
 		HOME = os.environ['HOME_SITE']
+		# HOME = ''
 		MODEL_PATH = HOME+f'/projects/{proj_id}/models/'
 		if not os.path.isdir(MODEL_PATH):
 			Path(MODEL_PATH).mkdir(parents=True)
