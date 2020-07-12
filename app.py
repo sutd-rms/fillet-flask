@@ -130,7 +130,7 @@ def train():
 @app.route('/predict/', methods=['POST'])
 def predict():
 	app.logger.info('PREDICT REQUEST RECEIVED')
-	
+
 	# with open('keys.json') as f:
 	# 		HOST_KEY = json.load(f)['host_key']
 
@@ -170,7 +170,7 @@ def predict():
 	url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_4_predictbatch'
 	app.logger.info('SENDING REQUEST TO FILLET SERVERS')
 	result = requests.get(url, params=payload, data=json.dumps(data))
-	app.logger.info(f'RESPONSE RECEIVED FROM FILLET {results.status_code}')
+	app.logger.info(f'RESPONSE RECEIVED FROM FILLET {result.status_code}')
 	pred_quantities = result.json()['qty_estimates']
 
 	pred_quantities_dict = {}
