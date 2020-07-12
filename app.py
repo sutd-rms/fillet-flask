@@ -88,7 +88,7 @@ def train():
 	if not os.path.isdir(temp_data_path):
 		Path(temp_data_path).mkdir(parents=True)
 	data_file.save(temp_data_path+'/data_staging.parquet')
-	data = pd.read_parquet(temp_data_path+'/data_staging.parquet')
+	data_df = pd.read_parquet(temp_data_path+'/data_staging.parquet')
 
 	app.logger.info('DATA SUCCESSFULLY LOADED')
 
@@ -99,7 +99,7 @@ def train():
 					}
 	# data_df = pd.DataFrame().from_dict(data)
 
-	del data
+	del data_file
 	gc.collect()
 
 	pdm = rms_pricing_model(data_df)
