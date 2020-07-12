@@ -8,6 +8,7 @@ import json
 import pandas as pd
 import os, requests
 from pathlib import Path
+import gc
 # from xgboost import XGBRegressor
 
 import logging
@@ -74,7 +75,15 @@ def train():
 					 'cv_acc':0
 					}
 	data_df = pd.DataFrame().from_dict(data)
+
+	del data
+	gc.collect()
+
 	pdm = rms_pricing_model(data_df)
+
+	del data_df
+	gc.collect()
+
 	# save price info for optimization use
 	HOME = os.environ['HOME_SITE']
 	# HOME = ''
@@ -160,7 +169,7 @@ def predict():
 	url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_4_predictbatch'
 	app.logger.info('SENDING REQUEST TO FILLET SERVERS')
 	result = requests.get(url, params=payload, data=json.dumps(data))
-	app.logger.info('RESPONSE RECEIVED FROM FILLET')
+	app.logger.info(f'RESPONSE RECEIVED FROM FILLET {results.status_code}')
 	pred_quantities = result.json()['qty_estimates']
 
 	pred_quantities_dict = {}

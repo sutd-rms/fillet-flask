@@ -195,10 +195,13 @@ class rms_pricing_model():
 		del sales_data_wide
 		gc.collect()
 
-		self.data = sales_data_wide_clean
+		self.data = sales_data_wide_clean.copy()
 		self.price_columns = [
 		col for col in sales_data_wide_clean.columns if col.startswith('Price')
 		]
+
+		del sales_data_wide_clean
+		gc.collect()
 
 	def get_and_save_price_info(self, price_info_path):
 		prices = self.data[self.price_columns]
@@ -246,6 +249,9 @@ class rms_pricing_model():
 		y.to_parquet('temp/y.parquet')
 		Week.to_parquet('temp/Wk.parquet')
 
+		del sales_data_wide_clean
+		gc.collect()
+
 		files = {'X_file': open('temp/X.parquet', 'rb'),
 				 'y_file': open('temp/y.parquet', 'rb'),
 				 'Wk_file': open('temp/Wk.parquet', 'rb'),
@@ -270,6 +276,11 @@ class rms_pricing_model():
 		files['X_file'].close()
 		files['y_file'].close()
 		files['Wk_file'].close()
+
+		del X
+		del y
+		del Week
+		gc.collect()
 
 		return outp
 
@@ -311,6 +322,9 @@ class rms_pricing_model():
 		X = X.reindex(sorted(X.columns), axis=1)
 		y = sales_data_wide_clean[target_column].copy()
 
+		del sales_data_wide_clean
+		gc.collect()
+
 		payload = {
 		'code':HOST_KEY,
 		}
@@ -340,11 +354,9 @@ class rms_pricing_model():
 		# 	)
 		model_json = result.json()['model_json']  
 
-
-
-
-
-
+		del X
+		del y
+		gc.collect()
 
 		# model = XGBRegressor()
 		# model.fit(X, y)
@@ -362,6 +374,8 @@ class rms_pricing_model():
 
 		files['X_file'].close()
 		files['y_file'].close()
+
+
 
 		return model_json
 	
