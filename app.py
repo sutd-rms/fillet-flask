@@ -9,6 +9,7 @@ import pandas as pd
 import os, requests
 from pathlib import Path
 import gc
+import shutil
 # from xgboost import XGBRegressor
 
 import logging
@@ -73,12 +74,12 @@ def train():
 
 	
 
-
+	# print(dir(request))
 
 
 	# data = json.loads(request.json['data'])
-	cv_acc = request.get_body()['cv_acc']
-	project_id = request.get_body()['project_id']
+	cv_acc = request.form['cv_acc']
+	project_id = request.form['project_id']
 
 	app.logger.info('ATTEMPTING DATA RETREIVAL')
 
