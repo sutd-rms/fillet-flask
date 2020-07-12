@@ -192,7 +192,7 @@ def predict():
 
 	url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_4_predictbatch'
 	app.logger.info('SENDING REQUEST TO FILLET SERVERS')
-	result = requests.get(url, params=payload, data=json.dumps(data))
+	result = requests.get(url, params=payload, data=zlib.compress(json.dumps(data).encode('utf-8')))
 	app.logger.info(f'RESPONSE RECEIVED FROM FILLET {result.status_code}')
 	pred_quantities = result.json()['qty_estimates']
 
