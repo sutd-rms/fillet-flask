@@ -67,9 +67,27 @@ def hello():
 @app.route('/train/', methods=['POST'])
 def train():
 	app.logger.info('TRAIN REQUEST RECEIVED')
-	data = json.loads(request.json['data'])
+
+	HOME = os.environ['HOME_SITE']
+	# HOME = ''
+
+	
+
+
+
+
+	# data = json.loads(request.json['data'])
 	cv_acc = request.get_json()['cv_acc']
 	project_id = request.get_json()['project_id']
+
+	data_file = request.files['data']
+	temp_data_path = f'temp/staging/{project_id}'
+	if not os.path.isdir(temp_data_path):
+		Path(temp_data_path).mkdir(parents=True)
+	data_file.save(temp_data_path+'/data_staging.parquet')
+	data = pd.read_parquet(temp_data_path+'/data_staging.parquet')
+
+	shutil.rmtree(temp_data_path)
 
 	response_outp = {'result':0,
 					 'cv_acc':0
@@ -85,8 +103,7 @@ def train():
 	gc.collect()
 
 	# save price info for optimization use
-	HOME = os.environ['HOME_SITE']
-	# HOME = ''
+	
 	PRICE_INFO_PATH = HOME+f'/projects/{project_id}/'
 	if not os.path.isdir(PRICE_INFO_PATH):
 		Path(PRICE_INFO_PATH).mkdir(parents=True)
@@ -134,7 +151,7 @@ def predict():
 	# with open('keys.json') as f:
 	# 		HOST_KEY = json.load(f)['host_key']
 
-	HOST_KEY = os.environ['FUNCTIONS_KEY']                                         	
+	HOST_KEY = os.environ['FUNCTIONS_KEY']
 
 	prices = request.json['prices']
 	project_id = request.get_json()['project_id']
