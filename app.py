@@ -97,7 +97,7 @@ def train():
 	response_outp = {'result':0,
 					 'cv_acc':0
 					}
-	data_df = pd.DataFrame().from_dict(data)
+	# data_df = pd.DataFrame().from_dict(data)
 
 	del data
 	gc.collect()
