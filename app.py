@@ -10,6 +10,7 @@ import os, requests
 from pathlib import Path
 import gc
 import shutil
+import zlib
 # from xgboost import XGBRegressor
 
 import logging
