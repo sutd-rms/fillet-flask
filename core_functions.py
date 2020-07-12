@@ -16,6 +16,9 @@ import zlib
 import os
 from pathlib import Path
 import gc
+import shutil
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import logging
 log = logging.getLogger('fillet-flask.sub')
@@ -210,7 +213,7 @@ class rms_pricing_model():
 		p.dump((prices_std, prices_mean, self.price_columns), open(price_info_path,'wb'))
 
 
-	def get_performance(self, item_id):
+	def get_performance(self, item_id, proj_id):
 
 		# with open('keys.json') as f:
 		# 	HOST_KEY = json.load(f)['host_key']
@@ -242,19 +245,21 @@ class rms_pricing_model():
 		'code':HOST_KEY,
 		}
 
-		if not os.path.isdir('temp'):
-			Path('temp').mkdir(parents=True)
+		temp_cv_path = f'temp/cv/{proj_id}/{item_id}'
 
-		X.to_parquet('temp/X.parquet')
-		y.to_parquet('temp/y.parquet')
-		Week.to_parquet('temp/Wk.parquet')
+		if not os.path.isdir(temp_cv_path):
+			Path(temp_cv_path).mkdir(parents=True)
+
+		X.to_parquet(temp_cv_path+'/X.parquet')
+		y.to_parquet(temp_cv_path+'/y.parquet')
+		Week.to_parquet(temp_cv_path+'/Wk.parquet')
 
 		del sales_data_wide_clean
 		gc.collect()
 
-		files = {'X_file': open('temp/X.parquet', 'rb'),
-				 'y_file': open('temp/y.parquet', 'rb'),
-				 'Wk_file': open('temp/Wk.parquet', 'rb'),
+		files = {'X_file': open(temp_cv_path+'/X.parquet', 'rb'),
+				 'y_file': open(temp_cv_path+'/y.parquet', 'rb'),
+				 'Wk_file': open(temp_cv_path+'/Wk.parquet', 'rb'),
 				 }
 
 		# data = {
@@ -284,15 +289,27 @@ class rms_pricing_model():
 
 		return outp
 
-	def get_all_performance(self):
+	def get_all_performance(self, proj_id):
 		item_ids = [int(x.split('_')[1]) for x in self.price_columns]
 		perf_df = pd.DataFrame(columns=[
 			'item_id','avg_sales','r2_score',
 			'mae_score','mpe_score','rmse_score']
 			)
-		for item_id in item_ids:
-			item_perf = self.get_performance(item_id)
-			perf_df = perf_df.append(item_perf, ignore_index=True)
+
+		processes_cv = []
+		results_ls_cv = []
+		with ThreadPoolExecutor(max_workers=20) as executor:
+			for item_id in item_ids:
+				processes_cv.append(executor.submit(self.get_performance,item_id,proj_id))
+		for task in as_completed(processes_cv):
+			# results_ls_cv.append(task.result())
+			perf_df = perf_df.append(task.result(), ignore_index=True)
+
+		# for item_id in item_ids:
+		# 	item_perf = self.get_performance(item_id)
+		# 	perf_df = perf_df.append(item_perf, ignore_index=True)
+
+		shutil.rmtree('temp/cv')
 		return perf_df
 
 	def get_model(self, item_id, proj_id):
@@ -329,14 +346,16 @@ class rms_pricing_model():
 		'code':HOST_KEY,
 		}
 
-		if not os.path.isdir('temp'):
-			Path('temp').mkdir(parents=True)
+		temp_train_path = f'temp/train/{proj_id}/{item_id}'
 
-		X.to_parquet('temp/X.parquet')
-		y.to_parquet('temp/y.parquet')
+		if not os.path.isdir(temp_train_path):
+			Path(temp_train_path).mkdir(parents=True)
 
-		files = {'X_file': open('temp/X.parquet', 'rb'),
-				 'y_file': open('temp/y.parquet', 'rb')}
+		X.to_parquet(temp_train_path+'/X.parquet')
+		y.to_parquet(temp_train_path+'/y.parquet')
+
+		files = {'X_file': open(temp_train_path+'/X.parquet', 'rb'),
+				 'y_file': open(temp_train_path+'/y.parquet', 'rb')}
 
 		# data = {
 		# 		'X':X.to_json(),
@@ -365,6 +384,7 @@ class rms_pricing_model():
 
 		HOME = os.environ['HOME_SITE']
 		# HOME = ''
+
 		MODEL_PATH = HOME+f'/projects/{proj_id}/models/'
 		if not os.path.isdir(MODEL_PATH):
 			Path(MODEL_PATH).mkdir(parents=True)
@@ -375,15 +395,21 @@ class rms_pricing_model():
 		files['X_file'].close()
 		files['y_file'].close()
 
-
-
 		return model_json
 	
 	def train_all_items(self, proj_id, retrain=True):
 		item_ids = [int(x.split('_')[1]) for x in self.price_columns]
-		for item_id in item_ids:
-			if retrain==False:
-				if item_id not in self.models.keys():
-					self.get_model(item_id,proj_id)
-			else:
-				self.get_model(item_id,proj_id)
+		processes = []
+		results_ls = []
+		with ThreadPoolExecutor(max_workers=20) as executor:
+
+			for item_id in item_ids:
+				processes.append(executor.submit(self.get_model,item_id,proj_id))
+				# self.get_model(item_id,proj_id)
+		for task in as_completed(processes):
+			# print(task.result())
+			results_ls.append(task.result())
+
+
+		log.info(f'TRAINING COMPLETED FOR {len(item_ids)} ITEMS.')
+		shutil.rmtree('temp/train')

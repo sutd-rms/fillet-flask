@@ -122,7 +122,7 @@ def train():
 	
 	if cv_acc == True:
 		app.logger.info('RUNNING OPTIONAL CROSS VALIDATION')
-		perf_df = pdm.get_all_performance()
+		perf_df = pdm.get_all_performance(proj_id=project_id)
 		response_outp['cv_acc'] = perf_df.to_dict()
 
 	return jsonify(response_outp)
@@ -130,6 +130,7 @@ def train():
 @app.route('/predict/', methods=['POST'])
 def predict():
 	app.logger.info('PREDICT REQUEST RECEIVED')
+	
 	# with open('keys.json') as f:
 	# 		HOST_KEY = json.load(f)['host_key']
 
