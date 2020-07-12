@@ -77,8 +77,10 @@ def train():
 
 
 	# data = json.loads(request.json['data'])
-	cv_acc = request.get_json()['cv_acc']
-	project_id = request.get_json()['project_id']
+	cv_acc = request.get_body()['cv_acc']
+	project_id = request.get_body()['project_id']
+
+	app.logger.info('ATTEMPTING DATA RETREIVAL')
 
 	data_file = request.files['data']
 	temp_data_path = f'temp/staging/{project_id}'
@@ -86,6 +88,8 @@ def train():
 		Path(temp_data_path).mkdir(parents=True)
 	data_file.save(temp_data_path+'/data_staging.parquet')
 	data = pd.read_parquet(temp_data_path+'/data_staging.parquet')
+
+	app.logger.info('DATA SUCCESSFULLY LOADED')
 
 	shutil.rmtree(temp_data_path)
 
@@ -108,6 +112,7 @@ def train():
 	if not os.path.isdir(PRICE_INFO_PATH):
 		Path(PRICE_INFO_PATH).mkdir(parents=True)
 	pdm.get_and_save_price_info(PRICE_INFO_PATH+'price_info.pkl')
+	app.logger.info('PRICE INFO SAVED')
 	
 
 
