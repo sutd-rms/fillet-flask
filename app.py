@@ -8,6 +8,8 @@ import pandas as pd
 import os, requests
 from pathlib import Path
 from xgboost import XGBRegressor
+from constraint import * # pip install python-constraint
+import itertools
 
 import logging
 
@@ -21,6 +23,48 @@ logging.basicConfig(
 @app.route("/")
 def hello():
 	return "Hello World!"
+
+@app.route('/detect_conflict/', methods=['POST'])
+def detect_conflict():
+    app.logger.info('DETECT CONFLICT REQUEST RECEIVED')
+    rule_path = request.get_json()['constraints_path']
+    with open(rule_path) as f:
+        hard_rule_list = json.load(f)
+    # TODO: implement receiving for price floor and price cap
+    csp_vars = list(set(list(itertools.chain.from_iterable([rule['products'] for rule in hard_rule_list]))))
+    domain = {}
+    for var in csp_vars:
+#         price_floor = price_limits[price_limits.Item == int(var)]['Price_Floor'].iloc[0]
+#         price_cap = price_limits[price_limits.Item == int(var)]['Price_Cap'].iloc[0]
+#         domain[var] = list(np.arange(price_floor, price_cap+0.01, 0.05))
+    # Note: The original price limits do not have a valid solution, so I manually assigned [0, 5) for every variable
+    # To run the algorithm as normal, just uncomment the three lines above and comment the line below
+        a = list(np.arange(0., 5., 0.05, dtype=np.dtype(float)))
+        domain[var] = [round(i, 2) for i in a]
+    problem = Problem()
+    for key in domain:
+        problem.addVariable(key, domain[key])
+    for i in range(len(hard_rule_list)):
+        rule = hard_rule_list[i]
+        print('Adding rule ', rule)
+        if rule['shift'] < 0:
+            shift = round(-rule['shift'],2)
+            scales = [(-1)*i for i in rule['scales']]
+        else:
+            shift = round(rule['shift'],2)
+            scales = rule['scales']
+        if rule['equality'] == True:
+            problem.addConstraint(ExactSumConstraint(shift, multipliers=scales), rule['products'])
+        else:
+            problem.addConstraint(MinSumConstraint(shift, multipliers=scales), rule['products'])
+    solutions = problem.getSolutions()
+    if len(solutions) == 0:
+        return jsonify({'conflict':'Conflict exists'})
+    else:
+        return jsonify({'conflict':'No conflict'})
+    
+    
+    
 	
 @app.route('/optimize/', methods=['POST'])
 def optimize():
