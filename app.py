@@ -70,10 +70,11 @@ def hello():
 def train():
 	app.logger.info('TRAIN REQUEST RECEIVED')
 
-	HOME = os.environ['HOME_SITE']
-	# HOME = ''
+	# HOME = os.environ['HOME_SITE']
+	HOME = ''
 
 	cv_acc = request.form['cv_acc']
+	print('CV_ACC:', cv_acc)
 	project_id = request.form['project_id']
 
 	app.logger.info('ATTEMPTING DATA RETREIVAL')
@@ -114,7 +115,7 @@ def train():
 		'items':item_ids
 	}
 	with open(PRICE_INFO_PATH+'proj_properties.json', 'w') as outfile:
-    	json.dump(project_properties, outfile)
+		json.dump(proj_properties, outfile)
 	
 	# train models
 	pdm.train_all_items(proj_id=project_id,retrain=True)
@@ -126,10 +127,14 @@ def train():
 
 	response_outp['result'] = 'Success'
 	
-	if cv_acc == True:
+	if cv_acc == 'True':
 		app.logger.info('RUNNING OPTIONAL CROSS VALIDATION')
 		perf_df = pdm.get_all_performance(proj_id=project_id)
 		response_outp['cv_acc'] = perf_df.to_dict()
+
+		with open(PRICE_INFO_PATH+'proj_cv_perf.json', 'w') as outfile:
+			json.dump(perf_df.to_json(), outfile)
+
 
 	return jsonify(response_outp)
 
@@ -137,9 +142,9 @@ def train():
 def predict():
 	app.logger.info('PREDICT REQUEST RECEIVED')
 
-	# with open('keys.json') as f:
-	# 		HOST_KEY = json.load(f)['host_key']
-	HOST_KEY = os.environ['FUNCTIONS_KEY']
+	with open('keys.json') as f:
+			HOST_KEY = json.load(f)['host_key']
+	# HOST_KEY = os.environ['FUNCTIONS_KEY']
 
 	prices = request.json['prices']
 	project_id = request.get_json()['project_id']
@@ -156,8 +161,8 @@ def predict():
 
 	models_list = []
 
-	HOME = os.environ['HOME_SITE']
-	# HOME = ''
+	# HOME = os.environ['HOME_SITE']
+	HOME = ''
 
 
 	files = {}
@@ -193,12 +198,57 @@ def predict():
 	app.logger.info('RETURNING RESPONSE')
 	return jsonify(response_outp)
 
-@app.route('/api/', methods=['POST'])
-def makecalc():
-	data = request.get_json()
-	prediction = np.array2string(model.predict(data))
 
-	return jsonify(prediction)
+
+@app.route('/query_progress/', methods=['POST'])
+def query_progress():
+
+
+	# HOME = os.environ['HOME_SITE']
+	HOME = ''
+
+	project_id = request.get_json()['project_id']
+	app.logger.info(f'TRAINING PROGRESS QUERY FOR PROJ {project_id}')
+	proj_path = HOME+f'/projects/{project_id}/'
+	with open(proj_path+'proj_properties.json') as json_file:
+		proj_properties = json.load(json_file)
+	project_items = set(proj_properties['items'])
+
+	model_filenames = os.listdir(proj_path+'models')
+	trained_models = set([int(x.split('_')[1].split('.')[0]) for x in model_filenames])
+	remaining_models = project_items-trained_models
+
+
+	#check if CV is done
+	cv_done = 0
+	proj_dir = os.listdir(proj_path)
+	if 'proj_cv_perf.json' in proj_dir:
+		cv_done = 1
+
+
+	response_outp = {
+		'pct_complete':round((len(trained_models)/len(project_items)),3)*100,
+		'project_items':list(project_items),
+		'train_complete':list(trained_models),
+		'cv_done':cv_done
+	}
+	return jsonify(response_outp)
+
+@app.route('/get_cv_results/', methods=['POST'])
+def get_cv_results():
+	# HOME = os.environ['HOME_SITE']
+	HOME = ''
+	project_id = request.get_json()['project_id']
+	proj_path = HOME+f'/projects/{project_id}/'
+
+	proj_dir = os.listdir(proj_path)
+	if 'proj_cv_perf.json' in proj_dir:
+		with open(proj_path+'proj_cv_perf.json') as json_file:
+			cv_results = json.load(json_file)
+	return jsonify(cv_results)
+
+
+
 
 if __name__ == '__main__':
 	app.run(debug=True, host='0.0.0.0')
