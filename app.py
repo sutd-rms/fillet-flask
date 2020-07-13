@@ -155,7 +155,7 @@ def train():
 	if cv_acc == True:
 		app.logger.info('RUNNING OPTIONAL CROSS VALIDATION')
 		perf_df = pdm.get_all_performance()
-		response_outp['cv_acc'] = perf_df.to_json()
+		response_outp['cv_acc'] = perf_df.to_dict()
 
 	return jsonify(response_outp)
 
