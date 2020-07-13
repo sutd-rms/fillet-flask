@@ -4,6 +4,7 @@ from core_functions import rms_pricing_model
 # from core_functions import rms_pricing_model, GA
 import numpy as np
 import pickle as p
+
 import json
 import pandas as pd
 import os, requests
@@ -214,7 +215,11 @@ def query_progress():
 		proj_properties = json.load(json_file)
 	project_items = set(proj_properties['items'])
 
-	model_filenames = os.listdir(proj_path+'models')
+	try:
+		model_filenames = os.listdir(proj_path+'models')
+	except:
+		return(jsonify({'pct_complete':0}))
+
 	trained_models = set([int(x.split('_')[1].split('.')[0]) for x in model_filenames])
 	remaining_models = project_items-trained_models
 

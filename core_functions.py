@@ -348,9 +348,17 @@ class rms_pricing_model():
 		url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_1_train'
 		# url = 'http://localhost:7071/api/fillet_func_1_train'
 		
-		result = requests.get(url, params=payload,
-			files=files
-			)
+		while True:
+			try:
+				result = requests.get(url, params=payload,
+					files=files
+					)
+				model = p.loads(result.content)
+				break
+
+			except:
+				pass
+
 
 		model = p.loads(result.content)
 
