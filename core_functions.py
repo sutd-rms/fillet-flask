@@ -214,12 +214,12 @@ class rms_pricing_model():
 
 
 	def get_performance(self, item_id, proj_id):
+		
+		log.info(f'CROSS VALIDATING ITEM_ID {item_id} MODEL')
 
 		# with open('keys.json') as f:
 		# 	HOST_KEY = json.load(f)['host_key']
 
-		log.info(f'CROSS VALIDATING ITEM_ID {item_id} MODEL')
-		
 		HOST_KEY = os.environ['FUNCTIONS_KEY']                                         	
 
 		sales_data_wide_clean = self.data.copy()
@@ -262,18 +262,11 @@ class rms_pricing_model():
 				 'Wk_file': open(temp_cv_path+'/Wk.parquet', 'rb'),
 				 }
 
-		# data = {
-		# 	'X':X.to_json(),
-		# 	'y':y.to_json(),
-		# 	'Week':Week.to_json()
-		# }
-
-		url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_2_cv'
-		# url = 'http://localhost:7071/api/fillet_func_2_cv'
+		# url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_2_cv'
+		url = 'http://localhost:7071/api/fillet_func_2_cv'
 		result = requests.get(
 			url, params=payload,
 			files=files
-			# data=base64.b64encode(zlib.compress(json.dumps(data).encode('utf-8')))
 			)
 		outp = result.json()
 		outp['item_id'] = int(item_id)
@@ -302,12 +295,7 @@ class rms_pricing_model():
 			for item_id in item_ids:
 				processes_cv.append(executor.submit(self.get_performance,item_id,proj_id))
 		for task in as_completed(processes_cv):
-			# results_ls_cv.append(task.result())
 			perf_df = perf_df.append(task.result(), ignore_index=True)
-
-		# for item_id in item_ids:
-		# 	item_perf = self.get_performance(item_id)
-		# 	perf_df = perf_df.append(item_perf, ignore_index=True)
 
 		shutil.rmtree('temp/cv')
 		return perf_df
@@ -357,30 +345,20 @@ class rms_pricing_model():
 		files = {'X_file': open(temp_train_path+'/X.parquet', 'rb'),
 				 'y_file': open(temp_train_path+'/y.parquet', 'rb')}
 
-		# data = {
-		# 		'X':X.to_json(),
-		# 		'y':y.to_json()
-		# 	}
-
 		url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_1_train'
 		# url = 'http://localhost:7071/api/fillet_func_1_train'
 		
 		result = requests.get(url, params=payload,
 			files=files
 			)
-		# result = requests.get(url, params=payload,
-		# 	data=zlib.compress(json.dumps(data).encode('utf-8'))
-		# 	)
-		model_json = result.json()['model_json']  
+
+		model = p.loads(result.content)
 
 		del X
 		del y
 		gc.collect()
 
-		# model = XGBRegressor()
-		# model.fit(X, y)
-		
-		self.models[item_id] = model_json
+		self.models[item_id] = model
 
 		HOME = os.environ['HOME_SITE']
 		# HOME = ''
@@ -389,13 +367,13 @@ class rms_pricing_model():
 		if not os.path.isdir(MODEL_PATH):
 			Path(MODEL_PATH).mkdir(parents=True)
 
-		with open(MODEL_PATH+f'model_{item_id}.json','w') as f:
-			json.dump(model_json,f)
+		with open(MODEL_PATH+f'model_{item_id}.p', 'wb') as f:
+			p.dump(model, f)
 
 		files['X_file'].close()
 		files['y_file'].close()
 
-		return model_json
+		return model
 	
 	def train_all_items(self, proj_id, retrain=True):
 		item_ids = [int(x.split('_')[1]) for x in self.price_columns]
@@ -405,9 +383,8 @@ class rms_pricing_model():
 
 			for item_id in item_ids:
 				processes.append(executor.submit(self.get_model,item_id,proj_id))
-				# self.get_model(item_id,proj_id)
+
 		for task in as_completed(processes):
-			# print(task.result())
 			results_ls.append(task.result())
 
 

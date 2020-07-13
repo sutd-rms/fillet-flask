@@ -73,12 +73,6 @@ def train():
 	HOME = os.environ['HOME_SITE']
 	# HOME = ''
 
-	
-
-	# print(dir(request))
-
-
-	# data = json.loads(request.json['data'])
 	cv_acc = request.form['cv_acc']
 	project_id = request.form['project_id']
 
@@ -98,7 +92,6 @@ def train():
 	response_outp = {'result':0,
 					 'cv_acc':0
 					}
-	# data_df = pd.DataFrame().from_dict(data)
 
 	del data_file
 	gc.collect()
@@ -109,38 +102,17 @@ def train():
 	gc.collect()
 
 	# save price info for optimization use
-	
 	PRICE_INFO_PATH = HOME+f'/projects/{project_id}/'
 	if not os.path.isdir(PRICE_INFO_PATH):
 		Path(PRICE_INFO_PATH).mkdir(parents=True)
 	pdm.get_and_save_price_info(PRICE_INFO_PATH+'price_info.pkl')
 	app.logger.info('PRICE INFO SAVED')
 	
-
-
 	# train models
 	pdm.train_all_items(proj_id=project_id,retrain=True)
 
 	# save models
 	item_ids = [int(x.split('_')[1]) for x in pdm.price_columns]
-	# for item_id in item_ids:
-	# 	item_model_json = pdm.models[item_id]
-		
-	# 	MODEL_PATH = f'projects/{project_id}/models/'
-	# 	if not os.path.isdir(MODEL_PATH):
-	# 		Path(MODEL_PATH).mkdir(parents=True)
-
-	# 	with open(MODEL_PATH+f'model_{item_id}.json','w') as f:
-	# 		json.dump(item_model_json,f)
-
-		# MODEL_PATH = 'projects/{}/models/'.format(project_id)
-		# if not os.path.isdir(MODEL_PATH):
-		# 	Path(MODEL_PATH).mkdir(parents=True)
-
-		# item_model.save_model(MODEL_PATH+f'model_{item_id}.json')
-
-
-	
 
 	response_outp['result'] = 'Success'
 	
@@ -157,7 +129,6 @@ def predict():
 
 	# with open('keys.json') as f:
 	# 		HOST_KEY = json.load(f)['host_key']
-
 	HOST_KEY = os.environ['FUNCTIONS_KEY']
 
 	prices = request.json['prices']
@@ -173,27 +144,34 @@ def predict():
 
 	items = [int(x.split('_')[1]) for x in prices.columns]
 
-	models_json_list = []
+	models_list = []
 
 	HOME = os.environ['HOME_SITE']
 	# HOME = ''
-	for item in items:
-		with open(HOME+f'/projects/{project_id}/models/model_{item}.json') as f:
-			model_json = json.load(f)
-		models_json_list.append(model_json)
 
-	data = {
+
+	files = {}
+
+	for item in items:
+		with open(HOME+f'/projects/{project_id}/models/model_{item}.p','rb') as f:
+			model = p.load(f)
+		models_list.append(model)
+
+	data_dict = {
 		'prices':prices_json,
-		'models':models_json_list,
+		'models':models_list,
 	}
+
+	data = p.dumps(data_dict)
 
 	payload = {
 		'code':HOST_KEY,
 	}
 
 	url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_4_predictbatch'
+	# url = 'http://localhost:7071/api/fillet_func_4_predictbatch'
 	app.logger.info('SENDING REQUEST TO FILLET SERVERS')
-	result = requests.get(url, params=payload, data=zlib.compress(json.dumps(data).encode('utf-8')))
+	result = requests.post(url, params=payload, data=data)
 	app.logger.info(f'RESPONSE RECEIVED FROM FILLET {result.status_code}')
 	pred_quantities = result.json()['qty_estimates']
 
@@ -213,6 +191,4 @@ def makecalc():
 	return jsonify(prediction)
 
 if __name__ == '__main__':
-	# modelfile = 'models/final_prediction.pickle'
-	# model = p.load(open(modelfile, 'rb'))
 	app.run(debug=True, host='0.0.0.0')
