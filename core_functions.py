@@ -217,10 +217,10 @@ class rms_pricing_model():
 		
 		log.info(f'CROSS VALIDATING ITEM_ID {item_id} MODEL')
 
-		with open('keys.json') as f:
-			HOST_KEY = json.load(f)['host_key']
+		# with open('keys.json') as f:
+		# 	HOST_KEY = json.load(f)['host_key']
 
-		# HOST_KEY = os.environ['FUNCTIONS_KEY']                                         	
+		HOST_KEY = os.environ['FUNCTIONS_KEY']                                         	
 
 		sales_data_wide_clean = self.data.copy()
 
@@ -304,10 +304,10 @@ class rms_pricing_model():
 
 		log.info(f'TRAINING ITEM_ID {item_id} MODEL')
 
-		with open('keys.json') as f:
-			HOST_KEY = json.load(f)['host_key']
+		# with open('keys.json') as f:
+		# 	HOST_KEY = json.load(f)['host_key']
 
-		# HOST_KEY = os.environ['FUNCTIONS_KEY']                                         	
+		HOST_KEY = os.environ['FUNCTIONS_KEY']                                         	
 
 		sales_data_wide_clean = self.data.copy()
 
@@ -360,8 +360,8 @@ class rms_pricing_model():
 
 		self.models[item_id] = model
 
-		# HOME = os.environ['HOME_SITE']
-		HOME = ''
+		HOME = os.environ['HOME_SITE']
+		# HOME = ''
 
 		MODEL_PATH = HOME+f'/projects/{proj_id}/models/'
 		if not os.path.isdir(MODEL_PATH):
