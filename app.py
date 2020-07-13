@@ -136,6 +136,8 @@ def train():
 		with open(PRICE_INFO_PATH+'proj_cv_perf.json', 'w') as outfile:
 			json.dump(perf_df.to_json(), outfile)
 
+		app.logger.info(f'CROSS VALIDATION DONE')
+
 
 	return jsonify(response_outp)
 
@@ -218,7 +220,7 @@ def query_progress():
 	try:
 		model_filenames = os.listdir(proj_path+'models')
 	except:
-		return(jsonify({'pct_complete':0}))
+		return jsonify({'pct_complete':0})
 
 	trained_models = set([int(x.split('_')[1].split('.')[0]) for x in model_filenames])
 	remaining_models = project_items-trained_models
@@ -250,7 +252,10 @@ def get_cv_results():
 	if 'proj_cv_perf.json' in proj_dir:
 		with open(proj_path+'proj_cv_perf.json') as json_file:
 			cv_results = json.load(json_file)
-	return jsonify(cv_results)
+		return jsonify(cv_results)
+	else:
+		return jsonify({'status':'incomplete'})
+	
 
 
 

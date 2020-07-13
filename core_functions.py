@@ -291,7 +291,7 @@ class rms_pricing_model():
 
 		processes_cv = []
 		results_ls_cv = []
-		with ThreadPoolExecutor(max_workers=20) as executor:
+		with ThreadPoolExecutor() as executor:
 			for item_id in item_ids:
 				processes_cv.append(executor.submit(self.get_performance,item_id,proj_id))
 		for task in as_completed(processes_cv):
@@ -387,7 +387,7 @@ class rms_pricing_model():
 		item_ids = [int(x.split('_')[1]) for x in self.price_columns]
 		processes = []
 		results_ls = []
-		with ThreadPoolExecutor(max_workers=20) as executor:
+		with ThreadPoolExecutor() as executor:
 
 			for item_id in item_ids:
 				processes.append(executor.submit(self.get_model,item_id,proj_id))
