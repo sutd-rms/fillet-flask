@@ -107,12 +107,22 @@ def train():
 		Path(PRICE_INFO_PATH).mkdir(parents=True)
 	pdm.get_and_save_price_info(PRICE_INFO_PATH+'price_info.pkl')
 	app.logger.info('PRICE INFO SAVED')
+
+	item_ids = [int(x.split('_')[1]) for x in pdm.price_columns]
+	proj_properties = {
+		'num_items':len(item_ids),
+		'items':item_ids
+	}
+	with open(PRICE_INFO_PATH+'proj_properties.json', 'w') as outfile:
+    	json.dump(project_properties, outfile)
 	
 	# train models
 	pdm.train_all_items(proj_id=project_id,retrain=True)
 
 	# save models
-	item_ids = [int(x.split('_')[1]) for x in pdm.price_columns]
+	
+
+
 
 	response_outp['result'] = 'Success'
 	
