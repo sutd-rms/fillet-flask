@@ -1,1 +1,1 @@
-gunicorn --timeout 3600 --bind=0.0.0.0:8000 app:fillet-flask
+gunicorn --timeout 3600 --bind=0.0.0.0:8000 app:app

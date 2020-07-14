@@ -272,6 +272,16 @@ class rms_pricing_model():
 		outp = result.json()
 		outp['item_id'] = int(item_id)
 
+		HOME = os.environ['HOME_SITE']
+		# HOME = ''
+
+		cv_results_path = HOME+f'/projects/{proj_id}/cv/'
+		if not os.path.isdir(cv_results_path):
+			Path(cv_results_path).mkdir(parents=True)
+
+		with open(cv_results_path+f'{item_id}_cv_perf.json', 'w') as outfile:
+			json.dump(result.json(), outfile)
+
 		files['X_file'].close()
 		files['y_file'].close()
 		files['Wk_file'].close()
@@ -299,6 +309,26 @@ class rms_pricing_model():
 			perf_df = perf_df.append(task.result(), ignore_index=True)
 
 		shutil.rmtree('temp/cv')
+
+		# Check That All Models are Trained, Else Retrain
+
+		HOME = os.environ['HOME_SITE']
+		# HOME = ''
+
+		proj_cv_path = HOME+f'/projects/{proj_id}/cv'
+		cv_filenames = os.listdir(proj_cv_path)
+		cv_models = [int(x.split('_')[0]) for x in cv_filenames]
+
+		for item_id in item_ids:
+			processes_incomplete = []
+			results_ls_incomplete = []
+			with ThreadPoolExecutor(max_workers=10) as executor:
+				if item_id not in cv_models:
+					# Retrain and Re-Save to Disk
+					processes_incomplete.append(executor.submit(self.get_performance,item_id,proj_id))
+			for task in as_completed(processes_incomplete):
+				results_ls_incomplete.append(task.result())
+
 		return perf_df
 
 	def get_model(self, item_id, proj_id):
@@ -358,6 +388,7 @@ class rms_pricing_model():
 				break
 
 			except:
+				log.info(f'TRAIN {item_id} FAILED. RETRYING...')
 				pass
 
 
@@ -403,17 +434,27 @@ class rms_pricing_model():
 		# HOME = ''
 		proj_path = HOME+f'/projects/{proj_id}/'
 		model_filenames = os.listdir(proj_path+'models')
-		trained_models = [int(x.split('_')[1].split('.')[0]) for x in model_filenames]
 
-		for item_id in item_ids:
-			processes_incomplete = []
-			results_ls_incomplete = []
-			with ThreadPoolExecutor(max_workers=10) as executor:
-				if item_id not in trained_models:
-					# Retrain and Re-Save to Disk
-					processes_incomplete.append(executor.submit(self.get_model,item_id,proj_id))
-			for task in as_completed(processes_incomplete):
-				results_ls_incomplete.append(task.result())
+		finished = 0
+		while finished == 0:
+			model_filenames = os.listdir(proj_path+'models')
+			trained_models = [int(x.split('_')[1].split('.')[0]) for x in model_filenames]
+
+			for item_id in item_ids:
+				processes_incomplete = []
+				results_ls_incomplete = []
+				with ThreadPoolExecutor(max_workers=10) as executor:
+					if item_id not in trained_models:
+						# Retrain and Re-Save to Disk
+						processes_incomplete.append(executor.submit(self.get_model,item_id,proj_id))
+				for task in as_completed(processes_incomplete):
+					results_ls_incomplete.append(task.result())
+
+			model_filenames = os.listdir(proj_path+'models')
+			trained_models = [int(x.split('_')[1].split('.')[0]) for x in model_filenames]
+
+			if len(trained_models) == len(item_ids):
+				finished = 1
 
 
 

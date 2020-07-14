@@ -228,6 +228,15 @@ def query_progress():
 
 	#check if CV is done
 	cv_done = 0
+	cv_path = HOME+f'/projects/{project_id}/cv'
+	try:
+		cv_dir = os.listdir(cv_path)
+		cv_progress = len(cv_dir)
+	except:
+		cv_progress = 0
+	
+
+
 	proj_dir = os.listdir(proj_path)
 	if 'proj_cv_perf.json' in proj_dir:
 		cv_done = 1
@@ -237,7 +246,8 @@ def query_progress():
 		'pct_complete':round((len(trained_models)/len(project_items)),3)*100,
 		'project_items':list(project_items),
 		'train_complete':list(trained_models),
-		'cv_done':cv_done
+		'cv_done':cv_done,
+		'cv_progress':round(cv_progress/len(project_items),3)*100
 	}
 	return jsonify(response_outp)
 
@@ -245,6 +255,7 @@ def query_progress():
 def get_cv_results():
 	HOME = os.environ['HOME_SITE']
 	# HOME = ''
+
 	project_id = request.get_json()['project_id']
 	proj_path = HOME+f'/projects/{project_id}/'
 
@@ -253,6 +264,23 @@ def get_cv_results():
 		with open(proj_path+'proj_cv_perf.json') as json_file:
 			cv_results = json.load(json_file)
 		return jsonify(cv_results)
+
+	try:
+		num_cv_done = len(os.listdir(proj_path+'cv'))
+	except:
+		return jsonify({'status':'incomplete'})
+
+	if num_cv_done>0:
+		perf_df = pd.DataFrame(columns=[
+			'item_id','avg_sales','r2_score',
+			'mae_score','mpe_score','rmse_score']
+			)
+		for cv_json_filename in os.listdir(proj_path+'cv'):
+			with open(proj_path+'cv/'+cv_json_filename) as json_file:
+				perf_df = perf_df.append(json.load(json_file), ignore_index=True)
+
+		return jsonify(perf_df.to_json())
+
 	else:
 		return jsonify({'status':'incomplete'})
 	
