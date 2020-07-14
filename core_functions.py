@@ -386,13 +386,6 @@ class rms_pricing_model():
 	
 	def train_all_items(self, proj_id, retrain=True):
 
-		HOME = os.environ['HOME_SITE']
-		# HOME = ''
-		proj_path = HOME+f'/projects/{proj_id}/'
-		model_filenames = os.listdir(proj_path+'models')
-
-
-
 		item_ids = [int(x.split('_')[1]) for x in self.price_columns]
 		processes = []
 		results_ls = []
@@ -406,6 +399,10 @@ class rms_pricing_model():
 			results_ls.append(task.result())
 
 		# Check That All Models are Trained, Else Retrain
+		HOME = os.environ['HOME_SITE']
+		# HOME = ''
+		proj_path = HOME+f'/projects/{proj_id}/'
+		model_filenames = os.listdir(proj_path+'models')
 		trained_models = [int(x.split('_')[1].split('.')[0]) for x in model_filenames]
 
 		for item_id in item_ids:
