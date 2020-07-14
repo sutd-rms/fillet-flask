@@ -27,26 +27,33 @@ def hello():
 @app.route('/detect_conflict/', methods=['POST'])
 def detect_conflict():
     app.logger.info('DETECT CONFLICT REQUEST RECEIVED')
-    rule_path = request.get_json()['constraints_path']
-    with open(rule_path) as f:
-        hard_rule_list = json.load(f)
+    constraints = request.get_json()['constraints']
+    hard_rule_list = constraints[0]
+    price_range = constraints[1]
+    price_range_new = {}
+    for item in price_range:
+        price_range_new[item['item_id']] = [item['max'], item['min']]
     # TODO: implement receiving for price floor and price cap
     csp_vars = list(set(list(itertools.chain.from_iterable([rule['products'] for rule in hard_rule_list]))))
     domain = {}
     for var in csp_vars:
-#         price_floor = price_limits[price_limits.Item == int(var)]['Price_Floor'].iloc[0]
-#         price_cap = price_limits[price_limits.Item == int(var)]['Price_Cap'].iloc[0]
-#         domain[var] = list(np.arange(price_floor, price_cap+0.01, 0.05))
+        if var in price_range_new:
+            price_floor = price_range_new[var][1] 
+            price_cap = price_range_new[var][0]
+        else:
+            print('No price range given for variable {}'.format(var))
+            price_floor, price_cap = 0., 20.
+        a = list(np.arange(price_floor, price_cap+0.01, 0.05))
+        domain[var] = [round(i, 2) for i in a]
     # Note: The original price limits do not have a valid solution, so I manually assigned [0, 5) for every variable
     # To run the algorithm as normal, just uncomment the three lines above and comment the line below
-        a = list(np.arange(0., 5., 0.05, dtype=np.dtype(float)))
-        domain[var] = [round(i, 2) for i in a]
+#         a = list(np.arange(0., 5., 0.05, dtype=np.dtype(float)))
+#         domain[var] = [round(i, 2) for i in a]
     problem = Problem()
     for key in domain:
         problem.addVariable(key, domain[key])
     for i in range(len(hard_rule_list)):
         rule = hard_rule_list[i]
-        print('Adding rule ', rule)
         if rule['shift'] < 0:
             shift = round(-rule['shift'],2)
             scales = [(-1)*i for i in rule['scales']]
