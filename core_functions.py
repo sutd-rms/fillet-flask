@@ -388,7 +388,7 @@ class rms_pricing_model():
 
 		HOME = os.environ['HOME_SITE']
 		# HOME = ''
-		proj_path = HOME+f'/projects/{project_id}/'
+		proj_path = HOME+f'/projects/{proj_id}/'
 		model_filenames = os.listdir(proj_path+'models')
 
 
