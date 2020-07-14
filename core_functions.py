@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 import gc
 import shutil
+import os
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -384,9 +385,18 @@ class rms_pricing_model():
 		return model
 	
 	def train_all_items(self, proj_id, retrain=True):
+
+		HOME = os.environ['HOME_SITE']
+		# HOME = ''
+		proj_path = HOME+f'/projects/{project_id}/'
+		model_filenames = os.listdir(proj_path+'models')
+
+
+
 		item_ids = [int(x.split('_')[1]) for x in self.price_columns]
 		processes = []
 		results_ls = []
+
 		with ThreadPoolExecutor(max_workers=10) as executor:
 
 			for item_id in item_ids:
@@ -394,6 +404,21 @@ class rms_pricing_model():
 
 		for task in as_completed(processes):
 			results_ls.append(task.result())
+
+		# Check That All Models are Trained, Else Retrain
+		trained_models = [int(x.split('_')[1].split('.')[0]) for x in model_filenames]
+
+		for item_id in item_ids:
+			processes_incomplete = []
+			results_ls_incomplete = []
+			with ThreadPoolExecutor(max_workers=10) as executor:
+				if item_id not in trained_models:
+					# Retrain and Re-Save to Disk
+					processes_incomplete.append(executor.submit(self.get_model,item_id,proj_id))
+			for task in as_completed(processes_incomplete):
+				results_ls_incomplete.append(task.result())
+
+
 
 
 		log.info(f'TRAINING COMPLETED FOR {len(item_ids)} ITEMS.')
