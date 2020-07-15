@@ -282,7 +282,7 @@ class rms_pricing_model():
 				pass
 
 		del sales_data_wide_clean
-				gc.collect()
+		gc.collect()
 
 		HOME = os.environ['HOME_SITE']
 		# HOME = ''
