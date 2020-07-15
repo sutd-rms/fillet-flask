@@ -18,6 +18,7 @@ from pathlib import Path
 import gc
 import shutil
 import os
+import time
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -277,6 +278,7 @@ class rms_pricing_model():
 				break
 			except:
 				log.info(f'CV {item_id} FAILED. RETRYING...')
+				time.sleep(10)
 				pass
 
 		HOME = os.environ['HOME_SITE']
@@ -398,6 +400,7 @@ class rms_pricing_model():
 
 			except:
 				log.info(f'TRAIN {item_id} FAILED. RETRYING...')
+				time.sleep(10)
 				pass
 
 
