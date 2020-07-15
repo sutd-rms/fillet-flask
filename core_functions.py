@@ -278,7 +278,7 @@ class rms_pricing_model():
 				break
 			except:
 				log.info(f'CV {item_id} FAILED. RETRYING...')
-				time.sleep(10)
+				time.sleep(60)
 				pass
 
 		HOME = os.environ['HOME_SITE']
@@ -312,7 +312,7 @@ class rms_pricing_model():
 
 		processes_cv = []
 		results_ls_cv = []
-		with ThreadPoolExecutor(max_workers=10) as executor:
+		with ThreadPoolExecutor(max_workers=5) as executor:
 			for item_id in item_ids:
 				processes_cv.append(executor.submit(self.get_performance,item_id,proj_id))
 		for task in as_completed(processes_cv):
@@ -332,7 +332,7 @@ class rms_pricing_model():
 		for item_id in item_ids:
 			processes_incomplete = []
 			results_ls_incomplete = []
-			with ThreadPoolExecutor(max_workers=10) as executor:
+			with ThreadPoolExecutor(max_workers=5) as executor:
 				if item_id not in cv_models:
 					# Retrain and Re-Save to Disk
 					processes_incomplete.append(executor.submit(self.get_performance,item_id,proj_id))
@@ -400,7 +400,7 @@ class rms_pricing_model():
 
 			except:
 				log.info(f'TRAIN {item_id} FAILED. RETRYING...')
-				time.sleep(10)
+				time.sleep(60)
 				pass
 
 
@@ -433,7 +433,7 @@ class rms_pricing_model():
 		processes = []
 		results_ls = []
 
-		with ThreadPoolExecutor(max_workers=10) as executor:
+		with ThreadPoolExecutor(max_workers=5) as executor:
 
 			for item_id in item_ids:
 				processes.append(executor.submit(self.get_model,item_id,proj_id))
@@ -455,7 +455,7 @@ class rms_pricing_model():
 			for item_id in item_ids:
 				processes_incomplete = []
 				results_ls_incomplete = []
-				with ThreadPoolExecutor(max_workers=10) as executor:
+				with ThreadPoolExecutor(max_workers=5) as executor:
 					if item_id not in trained_models:
 						# Retrain and Re-Save to Disk
 						processes_incomplete.append(executor.submit(self.get_model,item_id,proj_id))
