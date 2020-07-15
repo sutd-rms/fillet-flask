@@ -370,17 +370,18 @@ class rms_pricing_model():
 		if not os.path.isdir(temp_train_path):
 			Path(temp_train_path).mkdir(parents=True)
 
-		X.to_parquet(temp_train_path+'/X.parquet')
-		y.to_parquet(temp_train_path+'/y.parquet')
 
-		files = {'X_file': open(temp_train_path+'/X.parquet', 'rb'),
-				 'y_file': open(temp_train_path+'/y.parquet', 'rb')}
-
-		url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_1_train'
-		# url = 'http://localhost:7071/api/fillet_func_1_train'
 		
 		while True:
 			try:
+				X.to_parquet(temp_train_path+'/X.parquet')
+				y.to_parquet(temp_train_path+'/y.parquet')
+
+				files = {'X_file': open(temp_train_path+'/X.parquet', 'rb'),
+						 'y_file': open(temp_train_path+'/y.parquet', 'rb')}
+
+				url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_1_train'
+				# url = 'http://localhost:7071/api/fillet_func_1_train'
 				result = requests.get(url, params=payload,
 					files=files
 					)
