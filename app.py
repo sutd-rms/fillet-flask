@@ -33,7 +33,6 @@ def detect_conflict():
     price_range_new = {}
     for item in price_range:
         price_range_new[item['item_id']] = [item['max'], item['min']]
-    # TODO: implement receiving for price floor and price cap
     csp_vars = list(set(list(itertools.chain.from_iterable([rule['products'] for rule in hard_rule_list]))))
     domain = {}
     for var in csp_vars:
