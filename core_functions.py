@@ -251,26 +251,33 @@ class rms_pricing_model():
 		if not os.path.isdir(temp_cv_path):
 			Path(temp_cv_path).mkdir(parents=True)
 
-		X.to_parquet(temp_cv_path+'/X.parquet')
-		y.to_parquet(temp_cv_path+'/y.parquet')
-		Week.to_parquet(temp_cv_path+'/Wk.parquet')
+		while True:
+			try:
 
-		del sales_data_wide_clean
-		gc.collect()
+				X.to_parquet(temp_cv_path+'/X.parquet')
+				y.to_parquet(temp_cv_path+'/y.parquet')
+				Week.to_parquet(temp_cv_path+'/Wk.parquet')
 
-		files = {'X_file': open(temp_cv_path+'/X.parquet', 'rb'),
-				 'y_file': open(temp_cv_path+'/y.parquet', 'rb'),
-				 'Wk_file': open(temp_cv_path+'/Wk.parquet', 'rb'),
-				 }
+				del sales_data_wide_clean
+				gc.collect()
 
-		url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_2_cv'
-		# url = 'http://localhost:7071/api/fillet_func_2_cv'
-		result = requests.get(
-			url, params=payload,
-			files=files
-			)
-		outp = result.json()
-		outp['item_id'] = int(item_id)
+				files = {'X_file': open(temp_cv_path+'/X.parquet', 'rb'),
+						 'y_file': open(temp_cv_path+'/y.parquet', 'rb'),
+						 'Wk_file': open(temp_cv_path+'/Wk.parquet', 'rb'),
+						 }
+
+				url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_2_cv'
+				# url = 'http://localhost:7071/api/fillet_func_2_cv'
+				result = requests.get(
+					url, params=payload,
+					files=files
+					)
+				outp = result.json()
+				outp['item_id'] = int(item_id)
+				break
+			except:
+				log.info(f'CV {item_id} FAILED. RETRYING...')
+				pass
 
 		HOME = os.environ['HOME_SITE']
 		# HOME = ''
@@ -280,7 +287,8 @@ class rms_pricing_model():
 			Path(cv_results_path).mkdir(parents=True)
 
 		with open(cv_results_path+f'{item_id}_cv_perf.json', 'w') as outfile:
-			json.dump(result.json(), outfile)
+			# json.dump(result.json(), outfile)
+			json.dump(outp, outfile)
 
 		files['X_file'].close()
 		files['y_file'].close()
