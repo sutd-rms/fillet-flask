@@ -44,10 +44,6 @@ def detect_conflict():
             price_floor, price_cap = 0., 20.
         a = list(np.arange(price_floor, price_cap+0.01, 0.05))
         domain[var] = [round(i, 2) for i in a]
-    # Note: The original price limits do not have a valid solution, so I manually assigned [0, 5) for every variable
-    # To run the algorithm as normal, just uncomment the three lines above and comment the line below
-#         a = list(np.arange(0., 5., 0.05, dtype=np.dtype(float)))
-#         domain[var] = [round(i, 2) for i in a]
     problem = Problem()
     for key in domain:
         problem.addVariable(key, domain[key])
