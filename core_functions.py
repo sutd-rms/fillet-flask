@@ -259,8 +259,7 @@ class rms_pricing_model():
 				y.to_parquet(temp_cv_path+'/y.parquet')
 				Week.to_parquet(temp_cv_path+'/Wk.parquet')
 
-				del sales_data_wide_clean
-				gc.collect()
+				
 
 				files = {'X_file': open(temp_cv_path+'/X.parquet', 'rb'),
 						 'y_file': open(temp_cv_path+'/y.parquet', 'rb'),
@@ -276,10 +275,14 @@ class rms_pricing_model():
 				outp = result.json()
 				outp['item_id'] = int(item_id)
 				break
-			except:
+			except Exception as e:
 				log.info(f'CV {item_id} FAILED. RETRYING...')
+				log.info(f'{e}')
 				time.sleep(60)
 				pass
+
+		del sales_data_wide_clean
+				gc.collect()
 
 		HOME = os.environ['HOME_SITE']
 		# HOME = ''
@@ -398,8 +401,9 @@ class rms_pricing_model():
 				model = p.loads(result.content)
 				break
 
-			except:
+			except Exception as e:
 				log.info(f'TRAIN {item_id} FAILED. RETRYING...')
+				log.info(f'{e}')
 				time.sleep(60)
 				pass
 
