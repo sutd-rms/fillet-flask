@@ -8,9 +8,8 @@ import pandas as pd
 import os, requests
 from pathlib import Path
 from xgboost import XGBRegressor
-from constraint import * # pip install python-constraint
 import itertools
-
+import cvxpy as cp
 import logging
 
 app = Flask('fillet-flask')
@@ -26,41 +25,46 @@ def hello():
 
 @app.route('/detect_conflict/', methods=['POST'])
 def detect_conflict():
+    # get data
     app.logger.info('DETECT CONFLICT REQUEST RECEIVED')
     constraints = request.get_json()['constraints']
     hard_rule_list = constraints[0]
     price_range = constraints[1]
-    price_range_new = {}
+    price_range_dic = {}
     for item in price_range:
-        price_range_new[item['item_id']] = [item['max'], item['min']]
-    csp_vars = list(set(list(itertools.chain.from_iterable([rule['products'] for rule in hard_rule_list]))))
-    domain = {}
-    for var in csp_vars:
-        if var in price_range_new:
-            price_floor = price_range_new[var][1] 
-            price_cap = price_range_new[var][0]
-        else:
-            print('No price range given for variable {}'.format(var))
-            price_floor, price_cap = 0., 20.
-        a = list(np.arange(price_floor, price_cap+0.01, 0.05))
-        domain[var] = [round(i, 2) for i in a]
-    problem = Problem()
-    for key in domain:
-        problem.addVariable(key, domain[key])
+        price_range_dic[item['item_id']] = [item['max'], item['min']]
+    product_list = list(set(list(itertools.chain.from_iterable([rule['products'] for rule in hard_rule_list]))))
+    # process constraints into a matrix
+    num_item = len(product_list)
+    matrix = np.zeros((len(product_list), len(product_list)))
+    penalty = []
+    shifts = []
     for i in range(len(hard_rule_list)):
-        rule = hard_rule_list[i]
-        if rule['shift'] < 0:
-            shift = round(-rule['shift'],2)
-            scales = [(-1)*i for i in rule['scales']]
+        products = hard_rule_list[i]['products']
+        scales = hard_rule_list[i]['scales']
+        scales = [float(i) for i in scales]
+        shift = hard_rule_list[i]['shift']
+        for j, product in enumerate(products):
+            matrix[i, product_list.index(product)] = float(scales[j])
+        shifts.append(shift)
+    shifts = np.array(shifts).reshape(-1, 1)
+    shifts = np.vstack([shifts, np.zeros((matrix.shape[0]-shifts.shape[0], 1))])
+    # Use cvx library to solve the constraints
+    x = cp.Variable((matrix.shape[0], 1))
+    objective = cp.Minimize(cp.sum(x)) # any surrogate objective
+    constraints = [matrix@x-shifts==0]
+    for i, product in enumerate(product_list):
+        if int(product) not in price_range_dic.keys():
+            constraints.append(x[i][0] <= 20.)
+            constraints.append(x[i][0] >= 0.)
         else:
-            shift = round(rule['shift'],2)
-            scales = rule['scales']
-        if rule['equality'] == True:
-            problem.addConstraint(ExactSumConstraint(shift, multipliers=scales), rule['products'])
-        else:
-            problem.addConstraint(MinSumConstraint(shift, multipliers=scales), rule['products'])
-    solutions = problem.getSolutions()
-    if len(solutions) == 0:
+            constraints.append(x[i][0] >= price_range_dic[int(product)][1])
+            constraints.append(x[i][0] <= price_range_dic[int(product)][0])
+    prob = cp.Problem(objective, constraints)
+    # The optimal objective value is returned by `prob.solve()`.
+    result = prob.solve()
+    # return the result
+    if prob.status == 'infeasible':
         return jsonify({'conflict':'Conflict exists'})
     else:
         return jsonify({'conflict':'No conflict'})
