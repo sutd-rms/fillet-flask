@@ -145,9 +145,9 @@ def train():
 def predict():
 	app.logger.info('PREDICT REQUEST RECEIVED')
 
-	with open('keys.json') as f:
-			HOST_KEY = json.load(f)['host_key']
-	# HOST_KEY = os.environ['FUNCTIONS_KEY']
+	# with open('keys.json') as f:
+	# 		HOST_KEY = json.load(f)['host_key']
+	HOST_KEY = os.environ['FUNCTIONS_KEY']
 
 	prices = request.json['prices']
 	project_id = request.get_json()['project_id']
@@ -173,8 +173,8 @@ def predict():
 
 	models_list = []
 
-	# HOME = os.environ['HOME_SITE']
-	HOME = ''
+	HOME = os.environ['HOME_SITE']
+	# HOME = ''
 
 
 	files = {}
@@ -216,8 +216,8 @@ def predict():
 def query_progress():
 
 
-	# HOME = os.environ['HOME_SITE']
-	HOME = ''
+	HOME = os.environ['HOME_SITE']
+	# HOME = ''
 
 	project_id = request.get_json()['project_id']
 	app.logger.info(f'TRAINING PROGRESS QUERY FOR PROJ {project_id}')
@@ -268,8 +268,8 @@ def query_progress():
 
 @app.route('/get_cv_results/', methods=['POST'])
 def get_cv_results():
-	# HOME = os.environ['HOME_SITE']
-	HOME = ''
+	HOME = os.environ['HOME_SITE']
+	# HOME = ''
 
 	project_id = request.get_json()['project_id']
 	proj_path = HOME+f'/projects/{project_id}/'

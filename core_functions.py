@@ -219,10 +219,10 @@ class rms_pricing_model():
 		
 		log.info(f'CROSS VALIDATING ITEM_ID {item_id} MODEL')
 
-		with open('keys.json') as f:
-			HOST_KEY = json.load(f)['host_key']
+		# with open('keys.json') as f:
+		# 	HOST_KEY = json.load(f)['host_key']
 
-		# HOST_KEY = os.environ['FUNCTIONS_KEY']                                         	
+		HOST_KEY = os.environ['FUNCTIONS_KEY']                                         	
 
 		sales_data_wide_clean = self.data.copy()
 
@@ -284,8 +284,8 @@ class rms_pricing_model():
 		del sales_data_wide_clean
 		gc.collect()
 
-		# HOME = os.environ['HOME_SITE']
-		HOME = ''
+		HOME = os.environ['HOME_SITE']
+		# HOME = ''
 
 		cv_results_path = HOME+f'/projects/{proj_id}/cv/'
 		if not os.path.isdir(cv_results_path):
@@ -324,8 +324,8 @@ class rms_pricing_model():
 
 		# Check That All Models are Trained, Else Retrain
 
-		# HOME = os.environ['HOME_SITE']
-		HOME = ''
+		HOME = os.environ['HOME_SITE']
+		# HOME = ''
 
 		proj_cv_path = HOME+f'/projects/{proj_id}/cv'
 		cv_filenames = os.listdir(proj_cv_path)
@@ -347,9 +347,9 @@ class rms_pricing_model():
 
 		log.info(f'TRAINING ITEM_ID {item_id} MODEL')
 
-		with open('keys.json') as f:
-			HOST_KEY = json.load(f)['host_key']
-		# HOST_KEY = os.environ['FUNCTIONS_KEY']                                         	
+		# with open('keys.json') as f:
+		# 	HOST_KEY = json.load(f)['host_key']
+		HOST_KEY = os.environ['FUNCTIONS_KEY']                                         	
 
 		sales_data_wide_clean = self.data.copy()
 
@@ -414,8 +414,8 @@ class rms_pricing_model():
 
 		self.models[item_id] = model
 
-		# HOME = os.environ['HOME_SITE']
-		HOME = ''
+		HOME = os.environ['HOME_SITE']
+		# HOME = ''
 
 		MODEL_PATH = HOME+f'/projects/{proj_id}/models/'
 		if not os.path.isdir(MODEL_PATH):
@@ -444,8 +444,8 @@ class rms_pricing_model():
 			results_ls.append(task.result())
 
 		# Check That All Models are Trained, Else Retrain
-		# HOME = os.environ['HOME_SITE']
-		HOME = ''
+		HOME = os.environ['HOME_SITE']
+		# HOME = ''
 		proj_path = HOME+f'/projects/{proj_id}/'
 		model_filenames = os.listdir(proj_path+'models')
 
