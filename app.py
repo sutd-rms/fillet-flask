@@ -21,7 +21,7 @@ logging.basicConfig(
 	
 @app.route("/")
 def hello():
-	return "Hello World!"
+	return "Hello World!!!!"
 
 @app.route('/detect_conflict/', methods=['POST'])
 def detect_conflict():
