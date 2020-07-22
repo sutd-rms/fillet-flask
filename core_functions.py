@@ -225,7 +225,7 @@ class rms_pricing_model():
         p.dump((prices_std, prices_mean, self.price_columns),
                open(price_info_path, 'wb'))
 
-    def get_performance(self, item_id, proj_id):
+    def get_performance(self, item_id, proj_id, modeltype='default'):
         '''This function calls fillet-functions to run a
         cross-validation check for one item and saves the results 
         to disk under the project folder. 
@@ -238,6 +238,9 @@ class rms_pricing_model():
         # Set working directory
         HOME = os.environ['HOME_SITE']
         # HOME = ''
+
+        with open('fillet_functions_api_endpoints.json') as f:
+            fillet_func_urls = json.load(f)
 
         log.info(f'CROSS VALIDATING ITEM_ID {item_id} MODEL')
 
@@ -290,6 +293,7 @@ class rms_pricing_model():
                 }
 
                 # Send request to fillet-functions
+                url = fillet_func_urls[modeltype]['cv']
                 url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_2_cv'
                 result = requests.get(url, params=payload, files=files)
                 outp = result.json()
@@ -329,7 +333,7 @@ class rms_pricing_model():
 
         return outp
 
-    def get_all_performance(self, proj_id):
+    def get_all_performance(self, proj_id, modeltype='default'):
         '''This function loops through items in a project,
         and calls get_performance to get and save CV results
         to the project folder. In order to speed up the
@@ -379,13 +383,13 @@ class rms_pricing_model():
                     # Retrain and Re-Save to Disk
                     processes_incomplete.append(
                         executor.submit(self.get_performance, item_id,
-                                        proj_id))
+                                        proj_id, modeltype))
             for task in as_completed(processes_incomplete):
                 results_ls_incomplete.append(task.result())
 
         return perf_df
 
-    def get_model(self, item_id, proj_id):
+    def get_model(self, item_id, proj_id, modeltype='default'):
         '''This functions makes a call to fillet-functions
         to train a price-demand model for a single item, and saves
         the learned model to the project folder.
@@ -398,6 +402,9 @@ class rms_pricing_model():
         # Set working directory
         HOME = os.environ['HOME_SITE']
         # HOME = ''
+
+        with open('fillet_functions_api_endpoints.json') as f:
+            fillet_func_urls = json.load(f)
 
         log.info(f'TRAINING ITEM_ID {item_id} MODEL')
 
@@ -450,7 +457,8 @@ class rms_pricing_model():
                     'y_file': open(temp_train_path + '/y.parquet', 'rb')
                 }
                 # Send request to fillet-functions
-                url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_1_train'
+                url = fillet_func_urls[modeltype]['train']
+                # url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_1_train'
                 result = requests.get(url, params=payload, files=files)
                 
                 # Load returned pickles binary content
@@ -487,7 +495,7 @@ class rms_pricing_model():
 
         return model
 
-    def train_all_items(self, proj_id, retrain=True):
+    def train_all_items(self, proj_id, retrain=True, modeltype='default'):
         '''This function loops though all items in a project,
         and trains and saves each model to disk via get_model.
         In order to speed up the processing, it makes up to 5
@@ -532,7 +540,7 @@ class rms_pricing_model():
                     if item_id not in trained_models:
                         # Retrain and Re-Save to Disk
                         processes_incomplete.append(
-                            executor.submit(self.get_model, item_id, proj_id))
+                            executor.submit(self.get_model, item_id, proj_id, modeltype))
                 for task in as_completed(processes_incomplete):
                     results_ls_incomplete.append(task.result())
 

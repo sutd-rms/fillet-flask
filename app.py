@@ -90,6 +90,7 @@ def train():
     # Retrieve request details
     cv_acc = request.form['cv_acc']
     project_id = request.form['project_id']
+    modeltype = request.form['modeltype']
 
     # Load Parquet in Memory
     app.logger.info('ATTEMPTING DATA RETREIVAL')
@@ -140,7 +141,7 @@ def train():
         json.dump(proj_properties, outfile)
 
     # Trigger Train models on fillet-functions and save to disk
-    pdm.train_all_items(proj_id=project_id, retrain=True)
+    pdm.train_all_items(proj_id=project_id, retrain=True, modeltype=modeltype)
 
     # Prepare output
     response_outp = {'result': 0, 'cv_acc': 0}
@@ -151,7 +152,7 @@ def train():
         # Log CV Request
         app.logger.info('RUNNING OPTIONAL CROSS VALIDATION')
         # Trigger CV requests on fillet-functions and save to disk
-        perf_df = pdm.get_all_performance(proj_id=project_id)
+        perf_df = pdm.get_all_performance(proj_id=project_id, modeltype=modeltype)
         # If train + cv completes within timeout, return cv results
         response_outp['cv_acc'] = perf_df.to_dict()
         # Save CV results to project folder
@@ -180,11 +181,15 @@ def predict():
     #       HOST_KEY = json.load(f)['host_key']
     HOST_KEY = os.environ['FUNCTIONS_KEY']
 
+    with open('fillet_functions_api_endpoints.json') as f:
+        fillet_func_urls = json.load(f)
+
     app.logger.info('PREDICT REQUEST RECEIVED')
 
     # Retrieve request details
     prices = request.json['prices']
-    project_id = request.get_json()['project_id']
+    project_id = request.json['project_id']
+    modeltype = request.json['modeltype']
 
     # If the project exists, get its list of item_ids
     try:
@@ -231,7 +236,8 @@ def predict():
     }
 
     # Send predict request to fillet-functions
-    url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_4_predictbatch'
+    url = fillet_func_urls[modeltype]['predict']
+    # url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_4_predictbatch'
     app.logger.info('SENDING REQUEST TO FILLET SERVERS')
     result = requests.post(url, params=payload, data=data)
 
