@@ -19,6 +19,7 @@ requests==2.24.0
 scikit-learn==0.23.1
 scipy==1.4.1
 six==1.15.0
+sklearn==0.0
 threadpoolctl==2.1.0
 thrift==0.13.0
 typing==3.7.4.1
