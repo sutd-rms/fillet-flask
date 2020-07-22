@@ -215,10 +215,10 @@ class rms_pricing_model():
         gc.collect()
 
     def get_and_save_price_info(self, price_info_path):
-    	'''This function extracts the mean and variance
-    	of prices of the items in a dataset. The mean and
-    	variance is later used in price optimization initialization.
-    	'''
+        '''This function extracts the mean and variance
+        of prices of the items in a dataset. The mean and
+        variance is later used in price optimization initialization.
+        '''
         prices = self.data[self.price_columns]
         prices_std = prices.std(axis=0, skipna=True)
         prices_mean = prices.mean(axis=0, skipna=True)
@@ -226,13 +226,13 @@ class rms_pricing_model():
                open(price_info_path, 'wb'))
 
     def get_performance(self, item_id, proj_id):
-    	'''This function calls fillet-functions to run a
-    	cross-validation check for one item and saves the results 
-    	to disk under the project folder. 
-    	'''
-    	# Function Key required to call fillet-functions
-    	# with open('keys.json') as f:
-        # 	HOST_KEY = json.load(f)['host_key']
+        '''This function calls fillet-functions to run a
+        cross-validation check for one item and saves the results 
+        to disk under the project folder. 
+        '''
+        # Function Key required to call fillet-functions
+        # with open('keys.json') as f:
+        #     HOST_KEY = json.load(f)['host_key']
         HOST_KEY = os.environ['FUNCTIONS_KEY']
 
         # Set working directory
@@ -277,7 +277,7 @@ class rms_pricing_model():
         # Send CV requests to fillet-functions until successful
         while True:
             try:
-            	# Stage files in temp folder
+                # Stage files in temp folder
                 X.to_parquet(temp_cv_path + '/X.parquet')
                 y.to_parquet(temp_cv_path + '/y.parquet')
                 Week.to_parquet(temp_cv_path + '/Wk.parquet')
@@ -330,15 +330,15 @@ class rms_pricing_model():
         return outp
 
     def get_all_performance(self, proj_id):
-    	'''This function loops through items in a project,
-    	and calls get_performance to get and save CV results
-    	to the project folder. In order to speed up the
-    	processing, it makes up to 5 parallel calls to 
-    	fillet-functions via get_performance.
-    	'''
+        '''This function loops through items in a project,
+        and calls get_performance to get and save CV results
+        to the project folder. In order to speed up the
+        processing, it makes up to 5 parallel calls to 
+        fillet-functions via get_performance.
+        '''
 
-    	# Set working directory
-    	HOME = os.environ['HOME_SITE']
+        # Set working directory
+        HOME = os.environ['HOME_SITE']
         # HOME = ''
 
         # Get item_ids of a project
@@ -386,13 +386,13 @@ class rms_pricing_model():
         return perf_df
 
     def get_model(self, item_id, proj_id):
-    	'''This functions makes a call to fillet-functions
-    	to train a price-demand model for a single item, and saves
-    	the learned model to the project folder.
-    	'''
-    	# Function Key required to call fillet-functions
-    	# with open('keys.json') as f:
-        # 	HOST_KEY = json.load(f)['host_key']
+        '''This functions makes a call to fillet-functions
+        to train a price-demand model for a single item, and saves
+        the learned model to the project folder.
+        '''
+        # Function Key required to call fillet-functions
+        # with open('keys.json') as f:
+        #     HOST_KEY = json.load(f)['host_key']
         HOST_KEY = os.environ['FUNCTIONS_KEY']
 
         # Set working directory
@@ -440,7 +440,7 @@ class rms_pricing_model():
         # Send train requests to fillet-functions until successful
         while True:
             try:
-            	# Stage files in temp folder
+                # Stage files in temp folder
                 X.to_parquet(temp_train_path + '/X.parquet')
                 y.to_parquet(temp_train_path + '/y.parquet')
 
@@ -488,13 +488,13 @@ class rms_pricing_model():
         return model
 
     def train_all_items(self, proj_id, retrain=True):
-    	'''This function loops though all items in a project,
-    	and trains and saves each model to disk via get_model.
-    	In order to speed up the processing, it makes up to 5
-    	parallel calls to fillet-functions via get_model.
-    	'''
-    	# Set working directory
-    	HOME = os.environ['HOME_SITE']
+        '''This function loops though all items in a project,
+        and trains and saves each model to disk via get_model.
+        In order to speed up the processing, it makes up to 5
+        parallel calls to fillet-functions via get_model.
+        '''
+        # Set working directory
+        HOME = os.environ['HOME_SITE']
         # HOME = ''
 
         # Get item_ids of a project
@@ -528,7 +528,7 @@ class rms_pricing_model():
                 processes_incomplete = []
                 results_ls_incomplete = []
                 with ThreadPoolExecutor(max_workers=5) as executor:
-                	# If the item_id exists but model does not
+                    # If the item_id exists but model does not
                     if item_id not in trained_models:
                         # Retrain and Re-Save to Disk
                         processes_incomplete.append(
