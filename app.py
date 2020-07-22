@@ -1,5 +1,5 @@
 from flask import Flask, request, redirect, url_for, flash, jsonify
-from helper_functions import optimize_floats, optimize_memory
+from helper_functions import optimize_floats, optimize_memory, get_top_features
 from core_functions import rms_pricing_model
 # from core_functions import rms_pricing_model, GA
 import numpy as np
@@ -440,6 +440,48 @@ def get_cv_results():
 
     else:
         return jsonify({'status': 'incomplete'})
+
+
+@app.route('/get_feature_importances/', methods=['POST'])
+def get_feature_importances():
+    '''This function returns feature importances for all 
+    item models in a project.
+    '''
+    # Set current working directory
+    HOME = os.environ['HOME_SITE']
+    # HOME = ''
+
+    # Get request details
+    project_id = request.get_json()['project_id']
+    
+    # Attempt to locate and load in project from project_id
+    proj_path = HOME + f'/projects/{project_id}/'
+
+    # If the project exists, get its list of item_ids
+    try:
+        with open(proj_path + 'proj_properties.json') as json_file:
+            proj_properties = json.load(json_file)
+        project_items = set(proj_properties['items'])
+
+    # Otherwise, return error reponse
+    except:
+        return jsonify({'error': 'project not found'})
+
+    models_path = proj_path + 'models/'
+    
+    response_outp = {}
+
+    for item in project_items:
+        model_filename = models_path + f'model_{item}.p'
+        with open(model_filename, 'rb') as f:
+            item_model = p.load(f)
+        imp_df = get_top_features(item_model, n=10)
+        response_outp[item] = imp_df.to_dict()
+
+    return response_outp
+
+
+
 
 
 if __name__ == '__main__':
