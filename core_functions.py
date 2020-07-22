@@ -239,7 +239,7 @@ class rms_pricing_model():
         HOME = os.environ['HOME_SITE']
         # HOME = ''
 
-        with open('fillet_functions_api_endpoints.json') as f:
+        with open(HOME + '/fillet_functions_api_endpoints.json') as f:
             fillet_func_urls = json.load(f)
 
         log.info(f'CROSS VALIDATING ITEM_ID {item_id} MODEL')
@@ -403,7 +403,7 @@ class rms_pricing_model():
         HOME = os.environ['HOME_SITE']
         # HOME = ''
 
-        with open('fillet_functions_api_endpoints.json') as f:
+        with open(HOME + '/fillet_functions_api_endpoints.json') as f:
             fillet_func_urls = json.load(f)
 
         log.info(f'TRAINING ITEM_ID {item_id} MODEL')

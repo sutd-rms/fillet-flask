@@ -181,7 +181,7 @@ def predict():
     #       HOST_KEY = json.load(f)['host_key']
     HOST_KEY = os.environ['FUNCTIONS_KEY']
 
-    with open('fillet_functions_api_endpoints.json') as f:
+    with open(HOME + '/fillet_functions_api_endpoints.json') as f:
         fillet_func_urls = json.load(f)
 
     app.logger.info('PREDICT REQUEST RECEIVED')
@@ -320,6 +320,71 @@ def query_progress():
         'cv_progress': round(cv_progress / len(project_items), 3) * 100
     }
     return jsonify(response_outp)
+
+@app.route('/batch_query_progress/', methods=['POST'])
+def batch_query_progress():
+    '''This function takes in a list of project_ids and checks if there is
+    an existing project_id. If there is a project previously
+    created by a train request, responds with training progress.
+    Otherwise returns error to prompt user to resend train request.
+    '''
+    # Set current working directory
+    HOME = os.environ['HOME_SITE']
+    # HOME = ''
+
+    # Get request details
+    project_id_ls = request.get_json()['project_id_ls']
+    batch_outp = {}
+    for project_id in project_id_ls:
+        app.logger.info(f'TRAINING PROGRESS QUERY FOR PROJ {project_id}')
+        
+        # Attempt to locate and load in project from project_id
+        proj_path = HOME + f'/projects/{project_id}/'
+        try:
+            with open(proj_path + 'proj_properties.json') as json_file:
+                proj_properties = json.load(json_file)
+            project_items = set(proj_properties['items'])
+        except:
+            return jsonify({'error': 'project not found'})
+
+        # Project exists, attempt to locate existing trained models
+        try:
+            model_filenames = os.listdir(proj_path + 'models')
+        except:
+            return jsonify({'pct_complete': 0})
+
+        # Trained models exist, determine how many are left to train.
+        trained_models = set(
+            [int(x.split('_')[1].split('.')[0]) for x in model_filenames])
+        remaining_models = project_items - trained_models
+
+        # Check if CV is completed
+        cv_done = 0
+
+        # Attempt to locate and count the number of cv results completed
+        cv_path = HOME + f'/projects/{project_id}/cv'
+        try:
+            cv_dir = os.listdir(cv_path)
+            cv_progress = len(cv_dir)
+        except:
+            cv_progress = 0
+
+        # If CV is 100% complete, 'proj_cv_perf.json' also exists.
+        proj_dir = os.listdir(proj_path)
+        if 'proj_cv_perf.json' in proj_dir:
+            cv_done = 1
+
+        # Format response
+        response_outp = {
+            'pct_complete': round(
+                (len(trained_models) / len(project_items)), 3) * 100,
+            'project_items': list(project_items),
+            'train_complete': list(trained_models),
+            'cv_done': cv_done,
+            'cv_progress': round(cv_progress / len(project_items), 3) * 100
+        }
+        batch_outp[project_id] = response_outp
+    return jsonify(batch_outp)
 
 
 @app.route('/get_cv_results/', methods=['POST'])
