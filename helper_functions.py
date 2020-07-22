@@ -45,7 +45,7 @@ def parse_training_request(request):
 
 def get_top_features(xgb_model, n=5):
     feature_names = xgb_model._Booster.feature_names
-    importances = xgb.feature_importances_
+    importances = xgb_model.feature_importances_
     imp_df = pd.DataFrame({'feature_name':feature_names,
                            'importance':importances
                           })
