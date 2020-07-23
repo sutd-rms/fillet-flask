@@ -43,8 +43,8 @@ def GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors
     price_range_dic = {}
     for item in price_range:
         price_range_dic[item['item_id']] = [item['max'], item['min']]
-    fixed_rules = [constraint for constraint in constraints_hardsoft if constraints['penalty'] == -1]
-    constraints = [constraint for constraint in constraints_hardsoft if constraints['penalty'] != -1]
+    fixed_rules = [constraint for constraint in constraints_hardsoft if constraint['penalty'] == -1]
+    constraints = [constraint for constraint in constraints_hardsoft if constraint['penalty'] != -1]
     
     for fixed_rule in fixed_rules:
         # assume all fixed_rules are equality for now
