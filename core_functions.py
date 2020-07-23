@@ -26,6 +26,205 @@ log = logging.getLogger('fillet-flask.sub')
 
 master_data_input_path = 'data/data_all.csv'
 
+# input: price_std, price_mean, price_names, constraints(in pre-specified json format), regressors (in dictionary), 
+# population, generation, costs(optional), pre-set penalty constants, step(for prices), 
+# random_seed for replication of results
+def GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors, population, generation, 
+                        costs=None, penalty_hard_constant=1000000, penalty_soft_constant=100000, step=0.05, 
+                        random_seed=1):
+    product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_names)}
+    num_item = len(product_to_idx)
+    # load constraints
+    matrix, matrix_largerthan = np.zeros((1, num_item)), np.zeros((1, num_item))
+    penalty, penalty_largerthan = [], []
+    shifts, shifts_largerthan = [], []
+    constraints_hardsoft = constraints[0]
+    price_range = constraints[1]
+    price_range_dic = {}
+    for item in price_range:
+        price_range_dic[item['item_id']] = [item['max'], item['min']]
+    fixed_rules = [constraint for constraint in constraints_hardsoft if constraints['penalty'] == -1]
+    constraints = [constraint for constraint in constraints_hardsoft if constraints['penalty'] != -1]
+    
+    for fixed_rule in fixed_rules:
+        # assume all fixed_rules are equality for now
+        products = fixed_rule['products']
+        if not (set(products).issubset(set(product_to_idx.keys()))):
+            continue
+            # better raise error here
+        scales = fixed_rule['scales']
+        shift = fixed_rule['shift']
+        array = np.zeros((1, num_item))
+        for i, product in enumerate(products):
+            array[0, product_to_idx[product]] = float(scales[i])
+        matrix = np.vstack((matrix, array))
+        penalty.append(penalty_hard_constant)
+        shifts.append(shift)
+    
+    individuals_solved = []
+    #Obtain two valid individuals based on hard constraints and price limits first
+    x = cp.Variable((num_item, 1))
+    objective1 = cp.Minimize(cp.sum_squares(x))
+    objective2 = cp.Minimize(cp.sum(x))
+    constraints = [matrix@x-shifts==0]+[matrix_largerthan@x-shifts_largerthan>=0]
+    # add price range constraints
+    for i, product in enumerate(product_to_idx):
+        if int(product) not in price_range_dic.keys():
+            continue
+            # better raise error here
+        else:
+            constraints.append(x[i][0] >= price_range_dic[int(product)][1])
+            constraints.append(x[i][0] <= price_range_dic[int(product)][0])
+    prob1 = cp.Problem(objective1, constraints)
+    result = prob1.solve()
+    if prob1.status == 'optimal':
+        individuals_solved.append(x.value)
+    else:
+        return None
+        # better raise error here    
+    prob2 = cp.Problem(objective2, constraints)
+    result = prob2.solve()
+    if prob2.status == 'optimal':
+        individuals_solved.append(x.value)
+    else:
+        return None
+        # better raise error here
+    
+    # Load soft constraints and price limits
+    for constraint in constraints:
+        products = constraint['products']
+        if not (set(products).issubset(set(product_to_idx.keys()))):
+            continue
+        scales = constraint['scales']
+        shift = constraint['shift']
+        pnt = constraint['penlaty']
+        equality = constraint['equality']
+        array = np.zeros((1, num_item))
+        for i, product in enumerate(products):
+            array[0, product_to_idx[product]] = float(scales[i])
+        if equality == 1: # (less than)
+            matrix_largerthan = np.vstack((matrix_largerthan, -array))
+            penalty_largerthan.append(penalty_soft_constant*pnt)
+            shifts_largerthan.append(-shift)
+        elif equality == 2: # (less than)
+            matrix_largerthan = np.vstack((matrix_largerthan, array))
+            penalty_largerthan.append(penalty_soft_constant*pnt)
+            shifts_largerthan.append(shift)
+        elif equality == 0:
+            matrix = np.vstack((matrix, array))
+            penalty.append(penalty_soft_constant*pnt)
+            shifts.append(shift)
+    
+    for i, product in enumerate(product_to_idx):
+        if int(product) not in price_range_dic.keys():
+            continue
+            # better raise error here
+        else:
+            array = np.zeros((1, num_item))
+            array[0, product_to_idx[product]] = 1
+            
+            shift = price_range_dic[int(product)][0]
+            matrix_largerthan = np.vstack((matrix_largerthan, -array))
+            penalty_largerthan.append(penlaty_hard_constant)
+            shifts_largerthan.append(-shift)
+            
+            shift = price_range_dic[int(product)][1]
+            matrix_largerthan = np.vstack((matrix_largerthan, array))
+            penalty_largerthan.append(penlaty_hard_constant)
+            shifts_largerthan.append(shift)
+
+    matrix = matrix[1:]
+    penalty = np.array(penalty).reshape(-1, 1)
+    shifts = np.array(shifts).reshape(-1, 1)
+    matrix_largerthan = matrix_largerthan[1:]
+    penalty_largerthan = np.array(penalty_largerthan).reshape(-1, 1)
+    shifts_largerthan = np.array(shifts_largerthan).reshape(-1, 1)
+    
+    # components for DEAP package
+    creator.create("RevenuePenalty", base.Fitness, weights=(1.,))
+    creator.create("Individual", np.ndarray, fitness=creator.RevenuePenalty)
+    toolbox = base.Toolbox()
+    def get_individual(num_item, price_std, price_mean):
+        return creator.Individual((np.floor((np.absolute(np.random.standard_normal(num_item))*price_std*2 + price_mean)/step)*step).round(2))
+    toolbox.register("individual", get_individual, num_item, np.array(prices_std_list), np.array(prices_mean_list))
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+
+    def evalObjective(individual):
+        """
+        returns:
+        (revenue, penalty_): revenue of this individual and penalty from it violating the constraints
+        """
+        # Calculating revenue
+        quantity = np.zeros((num_item))
+        product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_columns)}
+        individual = individual.round(2)
+        for code in regressors: # TODO: use multiple workers here to speedup the optimization process
+            quantity[product_to_idx[code]] = regressors[code].predict(pd.DataFrame(individual.reshape(1, -1), columns=price_columns))
+        output = individual.dot(quantity)
+        # Calculating constraint violation penalty
+        temp = (matrix.dot(individual.reshape(-1, 1)) - shifts).round(2)
+        mask = temp != 0
+        penalty_ = mask.T.dot(penalty)
+        temp_largerthan = (matrix_largerthan.dot(individual.reshape(-1, 1)) - shifts_largerthan).round(2)
+        mask_largerthan = temp_largerthan > 0
+        penalty_largerthan_ = mask_largerthan.T.dot(penalty_largerthan)
+        return (output - penalty_[0,0] - penalty_largerthan_[0,0],)
+
+    def evalObjectiveProfit(individual):
+        """
+        returns:
+        (revenue, penalty_): revenue of this individual and penalty from it violating the constraints
+        """
+        # Calculating revenue
+        quantity = np.zeros((num_item))
+        product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_columns)}
+        individual = individual.round(2)
+        for code in regressors: # TODO: use multiple workers here to speedup the optimization process
+            quantity[product_to_idx[code]] = regressors[code].predict(pd.DataFrame(individual.reshape(1, -1), columns=price_columns))
+        output = (individual-costs).dot(quantity)
+        # Calculating constraint violation penalty
+        temp = (matrix.dot(individual.reshape(-1, 1)) - shifts).round(2)
+        mask = temp != 0
+        penalty_ = mask.T.dot(penalty)
+        temp_largerthan = (matrix_largerthan.dot(individual.reshape(-1, 1)) - shifts_largerthan).round(2)
+        mask_largerthan = temp_largerthan > 0
+        penalty_largerthan_ = mask_largerthan.T.dot(penalty_largerthan)
+        return (output - penalty_[0,0] - penalty_largerthan_[0,0],)
+
+    def cxTwoPointCopy(ind1, ind2):
+        size = len(ind1)
+        cxpoint1 = random.randint(1, size)
+        cxpoint2 = random.randint(1, size - 1)
+        if cxpoint2 >= cxpoint1:
+            cxpoint2 += 1
+        else: # Swap the two cx points
+            cxpoint1, cxpoint2 = cxpoint2, cxpoint1
+
+        ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] \
+            = ind2[cxpoint1:cxpoint2].copy(), ind1[cxpoint1:cxpoint2].copy()
+        return ind1, ind2
+
+    toolbox.register("evaluate", evalObjective) if not costs else toolbox.register("evaluate", evalObjectiveProfit)
+    toolbox.register("mate", cxTwoPointCopy)
+    toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
+    toolbox.register("select", tools.selTournament, tournsize=3)
+    from scoop import futures
+    toolbox.register("map", futures.map)
+    
+    random.seed(random_seed)
+    pop = toolbox.population(n=population)
+    for indvd in selected_individuals:
+        pop.append(creator.Individual(indvd.round(2).flatten()))
+    hof = tools.ParetoFront(similar=np.array_equal)
+    stats = tools.Statistics(lambda ind: ind.fitness.values)
+    stats.register("avg", np.mean)
+    stats.register("std", np.std)
+    stats.register("min", np.min)
+    stats.register("max", np.max)
+    algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=generation, stats=stats,
+                        halloffame=hof)
+    return pop, stats, hof
+
 class GA(object):
 
 	#initialize variables and lists

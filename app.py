@@ -1,6 +1,6 @@
 from flask import Flask, request, redirect, url_for, flash, jsonify
 from helper_functions import optimize_floats, optimize_memory
-from core_functions import rms_pricing_model, GA
+from core_functions import rms_pricing_model, GA, GeneticAlgorithm
 import numpy as np
 import pickle as p
 import json
@@ -110,26 +110,34 @@ def optimize():
 	models_list = [x for x in os.listdir(MODEL_PATH) if x.startswith('model') ]
 	# import pdb; pdb.set_trace()
 	items = [int(x.split('.')[0].split('_')[1]) for x in models_list]
+	product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_names)}
 
-	models = []
+	models = {}
 	for item in items:
 		item_model = XGBRegressor()
 		item_model.load_model(MODEL_PATH+f'/model_{item}.json')
-		models.append(item_model)
+		models[item] = item_model
 
 	# run optimization
-	Optimizer = GA()
-	Optimizer.properties(models, population, max_epoch, price_std, price_mean, price_names)
-	best_price = Optimizer.run()
-
+	result = GeneticAlgorithm(price_std, price_mean, price_names, constraints, models, population, max_epoch)
+                        # costs=None, penalty_hard_constant=1000000, penalty_soft_constant=100000, step=0.05, 
+                        # random_seed=1
+	if result:
+		pop, stats, hof = result
 	# Send result as Dict to avoid confusion
-	best_price_dict = {}
-	for item, price in zip(items, best_price):
-		best_price_dict[str(item)] = round(price,2)
+		best_price_list = []
+		for individual in pop:
+			best_price_dict = {}
+			for item, price in zip(product_to_idx, best_price):
+				best_price_dict[str(item)] = round(price, 2)
+			best_price_list.append(best_price_dict)
 
-	response_outp = {}
-	response_outp['result'] = best_price_dict
-	return jsonify(response_outp)
+		response_outp = {}
+		response_outp['result'] = best_price_list
+		return jsonify(response_outp)
+	else:
+		# better raise error here
+		return None
 
 
 @app.route('/train/', methods=['POST'])
