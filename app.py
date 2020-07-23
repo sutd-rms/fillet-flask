@@ -86,17 +86,23 @@ def train():
     HOME = os.environ['HOME_SITE']
     # HOME = ''
 
-    # Log Receive Train Request
-    app.logger.info('TRAIN REQUEST RECEIVED')
-
     # Retrieve request details
+    app.logger.info('REQUEST DETAILS RETREIVAL')
     cv_acc = request.form['cv_acc']
     project_id = request.form['project_id']
     modeltype = request.form['modeltype']
 
+    # Log Receive Train Request
+    app.logger.info(f'TRAIN REQUEST RECEIVED PROJ_ID: {project_id}')
+
     # Load Parquet in Memory
     app.logger.info('ATTEMPTING DATA RETREIVAL')
-    data_file = request.files['data']
+    
+    try:
+        data_file = request.files['data']
+    except Exception as e:
+        app.logger.info('ERROR IN DATA RETREIVAL')
+        app.logger.info(e)
 
     # Create temp staging folder
     temp_data_path = f'temp/staging/{project_id}'
