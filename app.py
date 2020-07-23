@@ -14,6 +14,8 @@ import gc
 import shutil
 import zlib
 # from xgboost import XGBRegressor
+import itertools
+import cvxpy as cp
 
 import logging
 
@@ -479,6 +481,54 @@ def get_feature_importances():
         response_outp[item] = imp_df.to_dict()
 
     return response_outp
+
+
+@app.route('/detect_conflict/', methods=['POST'])
+def detect_conflict():
+    # get data
+    app.logger.info('DETECT CONFLICT REQUEST RECEIVED')
+    constraints = request.get_json()['constraints']
+    hard_rule_list = constraints[0]
+    price_range = constraints[1]
+    price_range_dic = {}
+    for item in price_range:
+        price_range_dic[item['item_id']] = [item['max'], item['min']]
+    product_list = list(set(list(itertools.chain.from_iterable([rule['products'] for rule in hard_rule_list]))))
+    # process constraints into a matrix
+    num_item = len(product_list)
+    matrix = np.zeros((len(product_list), len(product_list)))
+    penalty = []
+    shifts = []
+    for i in range(len(hard_rule_list)):
+        products = hard_rule_list[i]['products']
+        scales = hard_rule_list[i]['scales']
+        scales = [float(i) for i in scales]
+        shift = hard_rule_list[i]['shift']
+        for j, product in enumerate(products):
+            matrix[i, product_list.index(product)] = float(scales[j])
+        shifts.append(shift)
+    shifts = np.array(shifts).reshape(-1, 1)
+    shifts = np.vstack([shifts, np.zeros((matrix.shape[0]-shifts.shape[0], 1))])
+    # Use cvx library to solve the constraints
+    x = cp.Variable((matrix.shape[0], 1))
+    objective = cp.Minimize(cp.sum(x)) # any surrogate objective
+    constraints = [matrix@x-shifts==0]
+    for i, product in enumerate(product_list):
+        if int(product) not in price_range_dic.keys():
+            constraints.append(x[i][0] <= 20.)
+            constraints.append(x[i][0] >= 0.)
+        else:
+            constraints.append(x[i][0] >= price_range_dic[int(product)][1])
+            constraints.append(x[i][0] <= price_range_dic[int(product)][0])
+    prob = cp.Problem(objective, constraints)
+    # The optimal objective value is returned by `prob.solve()`.
+    result = prob.solve()
+    # return the result
+    if prob.status == 'infeasible':
+        return jsonify({'conflict':'Conflict exists'})
+    else:
+        return jsonify({'conflict':'No conflict'})
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
