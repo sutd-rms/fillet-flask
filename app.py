@@ -488,31 +488,51 @@ def detect_conflict():
     # get data
     app.logger.info('DETECT CONFLICT REQUEST RECEIVED')
     constraints = request.get_json()['constraints']
-    hard_rule_list = constraints[0]
+    rule_list = constraints[0]
+    hard_rule_list = [i for i in rule_list if i['penalty'] == -1]
     price_range = constraints[1]
     price_range_dic = {}
     for item in price_range:
         price_range_dic[item['item_id']] = [item['max'], item['min']]
     product_list = list(set(list(itertools.chain.from_iterable([rule['products'] for rule in hard_rule_list]))))
-    # process constraints into a matrix
     num_item = len(product_list)
-    matrix = np.zeros((len(product_list), len(product_list)))
-    penalty = []
-    shifts = []
-    for i in range(len(hard_rule_list)):
-        products = hard_rule_list[i]['products']
-        scales = hard_rule_list[i]['scales']
-        scales = [float(i) for i in scales]
-        shift = hard_rule_list[i]['shift']
-        for j, product in enumerate(products):
-            matrix[i, product_list.index(product)] = float(scales[j])
-        shifts.append(shift)
-    shifts = np.array(shifts).reshape(-1, 1)
-    shifts = np.vstack([shifts, np.zeros((matrix.shape[0]-shifts.shape[0], 1))])
-    # Use cvx library to solve the constraints
-    x = cp.Variable((matrix.shape[0], 1))
+    # cvxpy library to solve linear programming problem 
+    x = cp.Variable((len(product_list), 1))
     objective = cp.Minimize(cp.sum(x)) # any surrogate objective
-    constraints = [matrix@x-shifts==0]
+    constraints = []
+    # add equality constraints
+    equal_list = [i for i in hard_rule_list if i['equality']==True]
+    if len(equal_list) != 0:
+        matrix1 = np.zeros((len(equal_list), len(product_list)))
+        shifts1 = []
+        for k in range(len(equal_list)):
+            products = equal_list[k]['products']
+            scales = equal_list[k]['scales']
+            scales = [float(s) for s in scales]
+            shift = equal_list[k]['shift']
+            for j, product in enumerate(products):
+                matrix1[k, product_list.index(product)] = float(scales[j])
+            shifts1.append(shift)
+        shifts1 = np.array(shifts1).reshape(-1, 1)
+        constraints.append(matrix1@x-shifts1==0)
+    # add inequality constraints
+    inequal_list = [i for i in hard_rule_list if i['equality']==False]
+    if len(inequal_list) != 0:
+        matrix2 = np.zeros((len(inequal_list), len(product_list)))
+        penalty = []
+        shifts2 = []
+        for i in range(len(inequal_list)):
+            products = inequal_list[i]['products']
+            scales = inequal_list[i]['scales']
+            scales = [float(s) for s in scales]
+            shift = inequal_list[i]['shift']
+            for j, product in enumerate(products):
+                print(i, j)
+                matrix2[i, product_list.index(product)] = float(scales[j])
+            shifts2.append(shift)
+        shifts2 = np.array(shifts2).reshape(-1, 1)
+        constraints.append(matrix2@x-shifts2>=0)
+    # add price range constraints
     for i, product in enumerate(product_list):
         if int(product) not in price_range_dic.keys():
             constraints.append(x[i][0] <= 20.)
