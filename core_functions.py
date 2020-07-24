@@ -36,7 +36,6 @@ master_data_input_path = 'data/data_all.csv'
 # input: price_std, price_mean, price_names, constraints(in pre-specified json format), regressors (in dictionary), 
 # population, generation, costs(optional), pre-set penalty constants, step(for prices), 
 # random_seed for replication of results
-
 def solve_cvx(eq, eq_s, ineq, ineq_s, mode):
     """
     eq, eq_s, ineq, ineq_s,: np.array
@@ -169,7 +168,27 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
         (revenue, penalty_): revenue of this individual and penalty from it violating the constraints
         """
         # Calculating revenue
-        quantity = np.zeros((individual.shape[0]))
+        quantity = np.zeros((num_item))
+        individual = individual.round(2)
+        for code in regressors: # TODO: use multiple workers here to speedup the optimization process
+            quantity[product_to_idx[code]] = regressors[code].predict(pd.DataFrame(individual.reshape(1, -1), columns=price_names))
+        # Calculating constraint violation penalty
+        output = individual.dot(quantity)
+        temp = (matrix.dot(individual.reshape(-1, 1)) - shifts).round(2)
+        mask = temp != 0
+        penalty_ = mask.T.dot(penalty)
+        temp_largerthan = (matrix_largerthan.dot(individual.reshape(-1, 1)) - shifts_largerthan).round(2)
+        mask_largerthan = temp_largerthan > 0
+        penalty_largerthan_ = mask_largerthan.T.dot(penalty_largerthan)
+        return (output - penalty_[0,0] - penalty_largerthan_[0,0],)
+
+    def evalObjectiveProfit(individual):
+        """
+        returns:
+        (revenue, penalty_): revenue of this individual and penalty from it violating the constraints
+        """
+        # Calculating revenue
+        quantity = np.zeros((num_item))
         product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_columns)}
         individual = individual.round(2)
         for code in regressors: # TODO: use multiple workers here to speedup the optimization process
@@ -210,6 +229,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     print('GA started running...')
     algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=generation, stats=stats,
                         halloffame=hof)
+    pop = [np.asarray(price).tolist() for price in pop]
     return pop, stats, hof
 
 
