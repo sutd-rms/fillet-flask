@@ -26,6 +26,7 @@ logging.basicConfig(
     '%(asctime)s | %(levelname)-8s | %(name)-25s | %(threadName)-16s : %(message).80s'
 )
 
+
 # Set current working directory
 HOME = os.environ['HOME_SITE']
 # HOME = ''
@@ -34,6 +35,7 @@ HOME = os.environ['HOME_SITE']
 # with open('keys.json') as f:
 #       HOST_KEY = json.load(f)['host_key']
 HOST_KEY = os.environ['FUNCTIONS_KEY']
+
 
 @app.route("/")
 def hello():
@@ -189,12 +191,13 @@ def predict():
     with open(HOME + '/fillet_functions_api_endpoints.json') as f:
         fillet_func_urls = json.load(f)
 
-    app.logger.info('PREDICT REQUEST RECEIVED')
+    
 
     # Retrieve request details
     prices = request.json['prices']
     project_id = request.json['project_id']
-    modeltype = request.json['modeltype']
+
+    app.logger.info(f'PREDICT REQUEST RECEIVED PROJECT {project_id}')
 
     # If the project exists, get its list of item_ids
     proj_path = HOME + f'/projects/{project_id}/'
@@ -205,6 +208,7 @@ def predict():
 
     # Otherwise, return error reponse
     except:
+        app.logger.info('PROJECT {project_id} NOT FOUND')
         return jsonify({'error': 'project not found'})
 
     # "Price_" prefix is added to match feature/column names
@@ -227,9 +231,6 @@ def predict():
             model = p.load(f)
         models_list.append(model)
 
-    # ============================================
-
-    # CAN WE PREDICT WITHOUT CALLING FILLET????? A STORY
     pred_quantities_dict = {}
 
     app.logger.info('ATTEMPT LOCAL PREDICT REQUEST')

@@ -27,6 +27,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 log = logging.getLogger('fillet-flask.sub')
 
+
 # Set current working directory
 HOME = os.environ['HOME_SITE']
 # HOME = ''
@@ -35,6 +36,7 @@ HOME = os.environ['HOME_SITE']
 # with open('keys.json') as f:
 #       HOST_KEY = json.load(f)['host_key']
 HOST_KEY = os.environ['FUNCTIONS_KEY']
+
 
 # class GA(object):
 
@@ -238,14 +240,6 @@ class rms_pricing_model():
         cross-validation check for one item and saves the results 
         to disk under the project folder. 
         '''
-        # # Function Key required to call fillet-functions
-        # # with open('keys.json') as f:
-        # #     HOST_KEY = json.load(f)['host_key']
-        # HOST_KEY = os.environ['FUNCTIONS_KEY']
-
-        # # Set working directory
-        # HOME = os.environ['HOME_SITE']
-        # # HOME = ''
 
         with open(HOME + '/fillet_functions_api_endpoints.json') as f:
             fillet_func_urls = json.load(f)
@@ -349,10 +343,6 @@ class rms_pricing_model():
         fillet-functions via get_performance.
         '''
 
-        # # Set working directory
-        # HOME = os.environ['HOME_SITE']
-        # # HOME = ''
-
         # Get item_ids of a project
         item_ids = [int(x.split('_')[1]) for x in self.price_columns]
         
@@ -402,14 +392,6 @@ class rms_pricing_model():
         to train a price-demand model for a single item, and saves
         the learned model to the project folder.
         '''
-        # # Function Key required to call fillet-functions
-        # # with open('keys.json') as f:
-        # #     HOST_KEY = json.load(f)['host_key']
-        # HOST_KEY = os.environ['FUNCTIONS_KEY']
-
-        # # Set working directory
-        # HOME = os.environ['HOME_SITE']
-        # # HOME = ''
 
         with open(HOME + '/fillet_functions_api_endpoints.json') as f:
             fillet_func_urls = json.load(f)
@@ -509,9 +491,6 @@ class rms_pricing_model():
         In order to speed up the processing, it makes up to 5
         parallel calls to fillet-functions via get_model.
         '''
-        # # Set working directory
-        # HOME = os.environ['HOME_SITE']
-        # # HOME = ''
 
         # Get item_ids of a project
         item_ids = [int(x.split('_')[1]) for x in self.price_columns]
