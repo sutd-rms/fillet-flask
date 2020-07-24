@@ -2,4 +2,4 @@
 To start the server on localhost
 `flask run`
 
-Examples for `/train/` and `/predict/` API calls are available in `Test Environment.ipynb`
+Examples for `/train/` and `/optimize/` API calls are available in `test_train_and_optimize.ipynb`
