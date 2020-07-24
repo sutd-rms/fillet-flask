@@ -3,6 +3,13 @@ from helper_functions import optimize_memory
 import numpy as np
 from scipy import stats
 import pickle as p
+import cvxpy as cp
+
+from deap import algorithms
+from deap import base
+from deap import creator
+from deap import tools
+
 
 from xgboost import XGBRegressor
 from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
@@ -60,35 +67,38 @@ def GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors
         matrix = np.vstack((matrix, array))
         penalty.append(penalty_hard_constant)
         shifts.append(shift)
+
+    matrix = matrix[1:]
     
     individuals_solved = []
     #Obtain two valid individuals based on hard constraints and price limits first
     x = cp.Variable((num_item, 1))
     objective1 = cp.Minimize(cp.sum_squares(x))
-    objective2 = cp.Minimize(cp.sum(x))
-    constraints = [matrix@x-shifts==0]+[matrix_largerthan@x-shifts_largerthan>=0]
+    # objective2 = cp.Minimize(cp.sum(x))
+    constraints_ = [matrix@x-np.array(shifts).reshape(-1, 1)==0]
+    # constraints.append(matrix_largerthan@x-shifts_largerthan>=0)
     # add price range constraints
     for i, product in enumerate(product_to_idx):
         if int(product) not in price_range_dic.keys():
             continue
             # better raise error here
         else:
-            constraints.append(x[i][0] >= price_range_dic[int(product)][1])
-            constraints.append(x[i][0] <= price_range_dic[int(product)][0])
-    prob1 = cp.Problem(objective1, constraints)
+            constraints_.append(x[i][0] >= price_range_dic[int(product)][1])
+            constraints_.append(x[i][0] <= price_range_dic[int(product)][0])
+    prob1 = cp.Problem(objective1, constraints_)
     result = prob1.solve()
     if prob1.status == 'optimal':
         individuals_solved.append(x.value)
     else:
         return None
         # better raise error here    
-    prob2 = cp.Problem(objective2, constraints)
-    result = prob2.solve()
-    if prob2.status == 'optimal':
-        individuals_solved.append(x.value)
-    else:
-        return None
-        # better raise error here
+    # prob2 = cp.Problem(objective2, constraints_)
+    # result = prob2.solve()
+    # if prob2.status == 'optimal':
+    #     individuals_solved.append(x.value)
+    # else:
+    #     return None
+    #     # better raise error here
     
     # Load soft constraints and price limits
     for constraint in constraints:
@@ -97,7 +107,7 @@ def GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors
             continue
         scales = constraint['scales']
         shift = constraint['shift']
-        pnt = constraint['penlaty']
+        pnt = constraint['penalty']
         equality = constraint['equality']
         array = np.zeros((1, num_item))
         for i, product in enumerate(products):
@@ -125,15 +135,15 @@ def GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors
             
             shift = price_range_dic[int(product)][0]
             matrix_largerthan = np.vstack((matrix_largerthan, -array))
-            penalty_largerthan.append(penlaty_hard_constant)
+            penalty_largerthan.append(penalty_hard_constant)
             shifts_largerthan.append(-shift)
             
             shift = price_range_dic[int(product)][1]
             matrix_largerthan = np.vstack((matrix_largerthan, array))
-            penalty_largerthan.append(penlaty_hard_constant)
+            penalty_largerthan.append(penalty_hard_constant)
             shifts_largerthan.append(shift)
 
-    matrix = matrix[1:]
+    
     penalty = np.array(penalty).reshape(-1, 1)
     shifts = np.array(shifts).reshape(-1, 1)
     matrix_largerthan = matrix_largerthan[1:]
@@ -146,7 +156,7 @@ def GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors
     toolbox = base.Toolbox()
     def get_individual(num_item, price_std, price_mean):
         return creator.Individual((np.floor((np.absolute(np.random.standard_normal(num_item))*price_std*2 + price_mean)/step)*step).round(2))
-    toolbox.register("individual", get_individual, num_item, np.array(prices_std_list), np.array(prices_mean_list))
+    toolbox.register("individual", get_individual, num_item, np.array(price_std), np.array(price_mean))
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
     def evalObjective(individual):
@@ -156,10 +166,15 @@ def GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors
         """
         # Calculating revenue
         quantity = np.zeros((num_item))
-        product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_columns)}
+        # hard_code_columns_str = 'Price_3047, Price_3728, Price_284, Price_7080, Price_5069, Price_202, Price_16003, Price_16018, Price_7575, Price_5690, Price_4976, Price_3768, Price_7114, Price_4410, Price_2521, Price_5068, Price_1504, Price_2589, Price_2257, Price_7113, Price_16002, Price_3601, Price_7041, Price_16000, Price_16001, Price_201, Price_5060, Price_1003, Price_2551, Price_203, Price_1230, Price_7434, Price_3818, Price_1153, Price_200, Price_2887, Price_1, Price_7967, Price_7109, Price_3737, Price_196, Price_3816, Price_7157, Price_3733, Price_1152, Price_1225, Price_4268, Price_16019, Price_5771, Price_4725, Price_3046, Price_350, Price_16017, Price_3731, Price_7078, Price_197, Price_3045, Price_7158, Price_21, Price_1002, Price_3721, Price_11, Price_4975, Price_3717, Price_204, Price_7966, Price_4267, Price_3817, Price_7108, Price_2511, Price_2571, Price_3722, Price_1232, Price_5074, Price_2, Price_3772, Price_7079, Price_7965, Price_5501, Price_3723, Price_3736, Price_3716, Price_3823, Price_7010, Price_7110, Price_2256, Price_2701, Price_4272, Price_281, Price_3821, Price_2588, Price_3773, Price_3727, Price_1205, Price_3766, Price_3718, Price_4409, Price_3743, Price_2581, Price_1231, Price_2315, Price_1615, Price_3738, Price_2867, Price_22, Price_1004, Price_1503, Price_12, Price_5666, Price_2541, Price_2531, Price_4977, Price_4270, Price_7115, Price_5820, Price_7129, Price_4728, Price_3822, Price_7159, Price_3742, Price_2501, Price_4411, Price_3771, Price_101, Price_1204, Price_3726, Price_7009, Price_1502, Price_4978, Price_7008, Price_7128, Price_16016, Price_2721, Price_2316, Price_4273, Price_2258, Price_1195, Price_1221, Price_4265, Price_3732, Price_2731, Price_3767, Price_5581, Price_2313, Price_5662, Price_5469, Price_2736, Price_6750'
+        # hard_code_columns = hard_code_columns_str.split(', ')
+        # print(len(price_names))
+        # print(len(hard_code_columns))
+        # product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_columns)}
         individual = individual.round(2)
         for code in regressors: # TODO: use multiple workers here to speedup the optimization process
-            quantity[product_to_idx[code]] = regressors[code].predict(pd.DataFrame(individual.reshape(1, -1), columns=price_columns))
+            # quantity[product_to_idx[code]] = regressors[code].predict(pd.DataFrame(individual.reshape(1, -1), columns=price_names))
+            quantity[product_to_idx[code]] = regressors[code].predict(pd.DataFrame(individual.reshape(1, -1), columns=hard_code_columns))
         output = individual.dot(quantity)
         # Calculating constraint violation penalty
         temp = (matrix.dot(individual.reshape(-1, 1)) - shifts).round(2)
@@ -213,7 +228,7 @@ def GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors
     
     random.seed(random_seed)
     pop = toolbox.population(n=population)
-    for indvd in selected_individuals:
+    for indvd in individuals_solved:
         pop.append(creator.Individual(indvd.round(2).flatten()))
     hof = tools.ParetoFront(similar=np.array_equal)
     stats = tools.Statistics(lambda ind: ind.fitness.values)

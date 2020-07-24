@@ -6,11 +6,13 @@ import pickle as p
 import json
 import pandas as pd
 import os, requests
+from os import listdir
 from pathlib import Path
 from xgboost import XGBRegressor
 import itertools
 import cvxpy as cp
 import logging
+from os.path import isfile, join
 
 app = Flask('fillet-flask')
 logging.basicConfig(
@@ -105,21 +107,29 @@ def optimize():
 	assert os.path.isfile(PRICE_INFO_PATH), 'No price info file found.'
 	price_std, price_mean, price_names = p.load(open(PRICE_INFO_PATH, 'rb'))
 	# load model
-	MODEL_PATH = 'projects/{}/models'.format(project_id)
-	assert os.path.isdir(MODEL_PATH), 'No model directory found.'
-	models_list = [x for x in os.listdir(MODEL_PATH) if x.startswith('model') ]
-	# import pdb; pdb.set_trace()
-	items = [int(x.split('.')[0].split('_')[1]) for x in models_list]
-	product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_names)}
+	model_path = 'projects/{}/models/'.format(project_id)
+	assert os.path.isdir(model_path), 'No model directory found.'
+	# models_list = [x for x in os.listdir(MODEL_PATH) if x.startswith('model')]
+	# models_list = [x for x in os.listdir(MODEL_PATH)]
+	# items = [int(x.split('.')[0].split('_')[1]) for x in models_list if x.split('.')[1] == 'json']
+	onlyfiles = [f for f in listdir(model_path) if isfile(join(model_path, f))]
+	regressors = {}
+	for file in onlyfiles:
+	    name = file.strip().split('.')[0]
+	    regressors[name] = p.load(open(model_path + file, 'rb'))
+	# items = [x.split('.')[0] for x in models_list]
+	# product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_names)}
 
-	models = {}
-	for item in items:
-		item_model = XGBRegressor()
-		item_model.load_model(MODEL_PATH+f'/model_{item}.json')
-		models[item] = item_model
+	# models = {}
+	# for item in items:
+	# 	# item_model = XGBRegressor()
+	# 	# item_model.load_model(MODEL_PATH+f'/model_{item}.json')
+	# 	# item_model.load_model(MODEL_PATH+f'/{item}.pickle')
+	# 	item_model = p.load(open(MODEL_PATH+'/'+item+'.pickle', 'rb'))
+	# 	models[item] = item_model
 
 	# run optimization
-	result = GeneticAlgorithm(price_std, price_mean, price_names, constraints, models, population, max_epoch)
+	result = GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors, population, max_epoch)
                         # costs=None, penalty_hard_constant=1000000, penalty_soft_constant=100000, step=0.05, 
                         # random_seed=1
 	if result:
