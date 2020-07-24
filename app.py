@@ -26,6 +26,14 @@ logging.basicConfig(
     '%(asctime)s | %(levelname)-8s | %(name)-25s | %(threadName)-16s : %(message).80s'
 )
 
+# Set current working directory
+HOME = os.environ['HOME_SITE']
+# HOME = ''
+
+# Function Key required to call fillet-functions
+# with open('keys.json') as f:
+#       HOST_KEY = json.load(f)['host_key']
+HOST_KEY = os.environ['FUNCTIONS_KEY']
 
 @app.route("/")
 def hello():
@@ -180,14 +188,14 @@ def predict():
     uploads the models to fillet-function to get sales quantity
     estimates for the given set of prices.
     '''
-    # Set current working directory
-    HOME = os.environ['HOME_SITE']
-    # HOME = ''
+    # # Set current working directory
+    # HOME = os.environ['HOME_SITE']
+    # # HOME = ''
 
-    # Function Key required to call fillet-functions
-    # with open('keys.json') as f:
-    #       HOST_KEY = json.load(f)['host_key']
-    HOST_KEY = os.environ['FUNCTIONS_KEY']
+    # # Function Key required to call fillet-functions
+    # # with open('keys.json') as f:
+    # #       HOST_KEY = json.load(f)['host_key']
+    # HOST_KEY = os.environ['FUNCTIONS_KEY']
 
     with open(HOME + '/fillet_functions_api_endpoints.json') as f:
         fillet_func_urls = json.load(f)
@@ -200,6 +208,7 @@ def predict():
     modeltype = request.json['modeltype']
 
     # If the project exists, get its list of item_ids
+    proj_path = HOME + f'/projects/{project_id}/'
     try:
         with open(proj_path + 'proj_properties.json') as json_file:
             proj_properties = json.load(json_file)
