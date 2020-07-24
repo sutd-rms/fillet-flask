@@ -74,11 +74,9 @@ def optimize():
         response_outp = {}
         response_outp['result'] = np.array(hof[0]).tolist()
         response_outp['report'] = [float(i) for i in report]
-        response_outp['report_info'] = ['estimated revenue', 
-                                       'number of hard equality constraints violated',
-                                       'number of hard inequality constraints (including price ranges) violated',
-                                       'number of soft equality constraints violated',
-                                       'number of soft inequality constraints violated']
+        response_outp['report_info'] = ['estimated revenue of the optimized price', 
+                                       'number of hard constraints (including price ranges) violated',
+                                       'number of soft constraints (preferences) violated']
         response_outp['price_cols'] = price_names
         return jsonify(response_outp)
     else:
