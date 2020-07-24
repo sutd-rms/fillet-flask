@@ -106,6 +106,7 @@ def optimize():
 	PRICE_INFO_PATH = 'projects/{}/price_info.pkl'.format(project_id)
 	assert os.path.isfile(PRICE_INFO_PATH), 'No price info file found.'
 	price_std, price_mean, price_names = p.load(open(PRICE_INFO_PATH, 'rb'))
+	product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_names)}
 	# load model
 	model_path = 'projects/{}/models/'.format(project_id)
 	assert os.path.isdir(model_path), 'No model directory found.'
@@ -138,7 +139,7 @@ def optimize():
 		best_price_list = []
 		for individual in pop:
 			best_price_dict = {}
-			for item, price in zip(product_to_idx, best_price):
+			for item, price in zip(product_to_idx, individual):
 				best_price_dict[str(item)] = round(price, 2)
 			best_price_list.append(best_price_dict)
 
