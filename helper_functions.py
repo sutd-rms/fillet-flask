@@ -30,15 +30,26 @@ def optimize_memory(df: pd.DataFrame, datetime_features: List[str] = []):
     return optimize_floats(optimize_ints(optimize_objects(df, datetime_features)))
 
 def parse_training_request(request):
-	raw_data = request.files['file']
-	data_all = pd.read_csv(raw_data)
-	np.random.seed(42)
-	item_subset = list(np.random.choice(data_all['Item_ID'].unique(), size=10, replace=False))
-	data_subset = data_all.loc[data_all['Item_ID'].isin(item_subset)].copy()
+    raw_data = request.files['file']
+    data_all = pd.read_csv(raw_data)
+    np.random.seed(42)
+    item_subset = list(np.random.choice(data_all['Item_ID'].unique(), size=10, replace=False))
+    data_subset = data_all.loc[data_all['Item_ID'].isin(item_subset)].copy()
 
-	data = data_subset
+    data = data_subset
 
-	cv_acc = request.form['cv_acc']
-	project_id = request.form['project_id']
+    cv_acc = request.form['cv_acc']
+    project_id = request.form['project_id']
 
-	return (data, cv_acc, project_id)
+    return (data, cv_acc, project_id)
+
+def get_top_features(xgb_model, n=5):
+    feature_names = xgb_model._Booster.feature_names
+    importances = xgb_model.feature_importances_
+    imp_df = pd.DataFrame({'feature_name':feature_names,
+                           'importance':importances
+                          })
+    imp_df = imp_df.sort_values('importance',
+                                ascending=False
+                               )
+    return imp_df.head(n)
