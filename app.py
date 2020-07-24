@@ -93,61 +93,40 @@ def detect_conflict():
     
     
     
-	
 @app.route('/optimize/', methods=['POST'])
 def optimize():
-	app.logger.info('OPTIMIZE REQUEST RECEIVED')
-	# get input
-	project_id = request.get_json()['project_id']
-	constraints = request.get_json()['constraints']
-	population =  request.get_json()['population']
-	max_epoch = request.get_json()['max_epoch']
-	# load price information
-	PRICE_INFO_PATH = 'projects/{}/price_info.pkl'.format(project_id)
-	assert os.path.isfile(PRICE_INFO_PATH), 'No price info file found.'
-	price_std, price_mean, price_names = p.load(open(PRICE_INFO_PATH, 'rb'))
-	# load model
-	model_path = 'projects/{}/models/'.format(project_id)
-	assert os.path.isdir(model_path), 'No model directory found.'
-	# models_list = [x for x in os.listdir(MODEL_PATH) if x.startswith('model')]
-	# models_list = [x for x in os.listdir(MODEL_PATH)]
-	# items = [int(x.split('.')[0].split('_')[1]) for x in models_list if x.split('.')[1] == 'json']
-	onlyfiles = [f for f in listdir(model_path) if isfile(join(model_path, f))]
-	regressors = {}
-	for file in onlyfiles:
-	    name = file.strip().split('.')[0]
-	    regressors[name] = p.load(open(model_path + file, 'rb'))
-	# items = [x.split('.')[0] for x in models_list]
-	# product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_names)}
-
-	# models = {}
-	# for item in items:
-	# 	# item_model = XGBRegressor()
-	# 	# item_model.load_model(MODEL_PATH+f'/model_{item}.json')
-	# 	# item_model.load_model(MODEL_PATH+f'/{item}.pickle')
-	# 	item_model = p.load(open(MODEL_PATH+'/'+item+'.pickle', 'rb'))
-	# 	models[item] = item_model
-
-	# run optimization
-	result = GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors, population, max_epoch)
+    app.logger.info('OPTIMIZE REQUEST RECEIVED')
+    # get input
+    project_id = request.get_json()['project_id']
+    constraints = request.get_json()['constraints']
+    population =  request.get_json()['population']
+    max_epoch = request.get_json()['max_epoch']
+    model_path = request.get_json()['model_path']
+    price_info_path = request.get_json()['price_info_path']
+    # load price information
+    assert os.path.isfile(price_info_path), 'No price info file found.'
+    price_std, price_mean, price_names = p.load(open(price_info_path, 'rb'))
+    product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_names)}
+    # load model
+    assert os.path.isdir(model_path), 'No model directory found.'
+    onlyfiles = [f for f in listdir(model_path) if isfile(join(model_path, f))]
+    regressors = {}
+    for file in onlyfiles:
+        name = file.strip().split('.')[0]
+        regressors[name] = p.load(open(model_path + file, 'rb'))
+    # run optimization
+    result = GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors, population, max_epoch)
                         # costs=None, penalty_hard_constant=1000000, penalty_soft_constant=100000, step=0.05, 
                         # random_seed=1
-	if result:
-		pop, stats, hof = result
-	# Send result as Dict to avoid confusion
-		best_price_list = []
-		for individual in pop:
-			best_price_dict = {}
-			for item, price in zip(product_to_idx, best_price):
-				best_price_dict[str(item)] = round(price, 2)
-			best_price_list.append(best_price_dict)
-
-		response_outp = {}
-		response_outp['result'] = best_price_list
-		return jsonify(response_outp)
-	else:
-		# better raise error here
-		return None
+    if result:
+        pop, stats, hof = result
+    # Send result as Dict to avoid confusion
+        response_outp = {}
+        response_outp['result'] = np.array(hof[0]).tolist()
+        return jsonify(response_outp)
+    else:
+        # better raise error here
+        return None
 
 
 @app.route('/train/', methods=['POST'])
