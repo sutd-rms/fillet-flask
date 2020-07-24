@@ -229,42 +229,66 @@ def predict():
             model = p.load(f)
         models_list.append(model)
 
-    # Dump all required info into dict
-    data_dict = {
-        'prices': prices_json,
-        'models': models_list,
-    }
+    # ============================================
 
-    # Dump dict to pickle binary
-    data = p.dumps(data_dict)
-
-    # Authentication key for fillet-functions
-    payload = {
-        'code': HOST_KEY,
-    }
-
-    # Send predict request to fillet-functions
-    url = fillet_func_urls[modeltype]['predict']
-    # url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_4_predictbatch'
-    app.logger.info('SENDING REQUEST TO FILLET SERVERS')
-    result = requests.post(url, params=payload, data=data)
-
-    # Log response status code
-    app.logger.info(f'RESPONSE RECEIVED FROM FILLET {result.status_code}')
-    
-    # fillet-functions responds with dict of qty_estimates
-    pred_quantities = result.json()['qty_estimates']
-
-    # Reformat estimates for neater response 
+    # CAN WE PREDICT WITHOUT CALLING FILLET????? A STORY
     pred_quantities_dict = {}
-    for item, qty_estimate in zip(items, pred_quantities):
-        pred_quantities_dict[f'Qty_{item}'] = int(round(
-            float(qty_estimate), 0))
 
+    app.logger.info('ATTEMPT LOCAL PREDICT REQUEST')
+
+    for item in items:
+        with open(HOME + f'/projects/{project_id}/models/model_{item}.p',
+                  'rb') as f:
+            model = p.load(f)
+        prices = prices[model._Booster.feature_names]
+        pred = model.predict(data=prices)
+        pred_value = int(pred[0])
+        pred_quantities_dict[item] = pred_value
+
+    app.logger.info('LOCAL PREDICT SUCCESS')
+    app.logger.info('RETURNING RESPONSE')
     # Send qty_estimate in reponse
     response_outp = {'qty_estimates': pred_quantities_dict}
-    app.logger.info('RETURNING RESPONSE')
     return jsonify(response_outp)
+
+    # ============================================
+
+    # # Dump all required info into dict
+    # data_dict = {
+    #     'prices': prices_json,
+    #     'models': models_list,
+    # }
+
+    # # Dump dict to pickle binary
+    # data = p.dumps(data_dict)
+
+    # # Authentication key for fillet-functions
+    # payload = {
+    #     'code': HOST_KEY,
+    # }
+
+    # # Send predict request to fillet-functions
+    # url = fillet_func_urls[modeltype]['predict']
+    # # url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_4_predictbatch'
+    # app.logger.info('SENDING REQUEST TO FILLET SERVERS')
+    # result = requests.post(url, params=payload, data=data)
+
+    # # Log response status code
+    # app.logger.info(f'RESPONSE RECEIVED FROM FILLET {result.status_code}')
+    
+    # # fillet-functions responds with dict of qty_estimates
+    # pred_quantities = result.json()['qty_estimates']
+
+    # # Reformat estimates for neater response 
+    # pred_quantities_dict = {}
+    # for item, qty_estimate in zip(items, pred_quantities):
+    #     pred_quantities_dict[f'Qty_{item}'] = int(round(
+    #         float(qty_estimate), 0))
+
+    # # Send qty_estimate in reponse
+    # response_outp = {'qty_estimates': pred_quantities_dict}
+    # app.logger.info('RETURNING RESPONSE')
+    # return jsonify(response_outp)
 
 
 @app.route('/query_progress/', methods=['POST'])
