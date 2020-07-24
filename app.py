@@ -69,10 +69,17 @@ def optimize():
                         # costs=None, penalty_hard_constant=1000000, penalty_soft_constant=100000, step=0.05, 
                         # random_seed=1
     if result:
-        pop, stats, hof = result
+        pop, stats, hof, report = result
     # Send result as Dict to avoid confusion
         response_outp = {}
         response_outp['result'] = np.array(hof[0]).tolist()
+        response_outp['report'] = [float(i) for i in report]
+        response_outp['report_info'] = ['estimated revenue', 
+                                       'number of hard equality constraints violated',
+                                       'number of hard inequality constraints (including price ranges) violated',
+                                       'number of soft equality constraints violated',
+                                       'number of soft inequality constraints violated']
+        response_outp['price_cols'] = price_names
         return jsonify(response_outp)
     else:
         # better raise error here

@@ -175,7 +175,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     matrix4, shifts4, penalty4 = list_to_matrix(soft_rule_ineq_list, product_to_idx, penalty_soft_constant)
     # 4. Run GA using DEAP library
     # 4.1. Define fitness function
-    def evalObjective(individual):
+    def evalObjective(individual, report=False):
         """
         returns:
         (revenue, penalty_): revenue of this individual and penalty from it violating the constraints
@@ -201,6 +201,8 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
         temp4 = (matrix4.dot(individual.reshape(-1, 1)) - shifts4).round(2)
         mask4 = temp4 < 0
         penalty_4 = mask4.T.dot(penalty4)
+        if report:
+            return [output, np.sum(mask1), np.sum(mask2), np.sum(mask3), np.sum(mask4)]
         if penalty_1.shape[0] > 0 and penalty_1.shape[1] > 0:
             output -= penalty_1[0,0]
         if penalty_2.shape[0] > 0 and penalty_2.shape[1] > 0:
@@ -239,7 +241,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     print('GA started running...')
     algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=generation, stats=stats,
                         halloffame=hof)
-    return pop, stats, hof
+    return pop, stats, hof, evalObjective(hof[0], report=True)
 
 
 class rms_pricing_model():
