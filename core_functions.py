@@ -37,7 +37,7 @@ master_data_input_path = 'data/data_all.csv'
 # population, generation, costs(optional), pre-set penalty constants, step(for prices), 
 # random_seed for replication of results
 def GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors, population, generation, 
-                        costs=None, penalty_hard_constant=1000000, penalty_soft_constant=100000, step=0.05, 
+                        costs=None, penalty_hard_constant=1000000, penalty_soft_constant=1000, step=0.05, 
                         random_seed=1):
     product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_names)}
     num_item = len(product_to_idx)

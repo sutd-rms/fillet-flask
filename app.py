@@ -40,7 +40,7 @@ def detect_conflict():
     num_item = len(product_list)
     # cvxpy library to solve linear programming problem 
     x = cp.Variable((len(product_list), 1))
-    objective = cp.Minimize(cp.sum(x)) # any surrogate objective
+    objective = cp.Minimize(cp.sum_squares(x)) # any surrogate objective
     constraints = []
     # add equality constraints
     equal_list = [i for i in hard_rule_list if i['equality']==True]
