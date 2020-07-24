@@ -1,6 +1,6 @@
 from flask import Flask, request, redirect, url_for, flash, jsonify
 from helper_functions import optimize_floats, optimize_memory, get_top_features
-from core_functions import rms_pricing_model, GeneticAlgorithm
+from core_functions import rms_pricing_model, GeneticAlgorithm, list_to_matrix, solve_cvx
 import numpy as np
 import pickle as p
 from os import listdir
@@ -464,66 +464,61 @@ def get_feature_importances():
 
 @app.route('/detect_conflict/', methods=['POST'])
 def detect_conflict():
-    # get data
+    # 1. get data
     app.logger.info('DETECT CONFLICT REQUEST RECEIVED')
     constraints = request.get_json()['constraints']
     rule_list = constraints[0]
     hard_rule_list = [i for i in rule_list if i['penalty'] == -1]
+    hard_rule_eq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 0)]
+    hard_rule_small_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 1)]
+    hard_rule_large_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 2)]
+    hard_rule_smalleq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 3)]
+    hard_rule_largeeq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 4)]
     price_range = constraints[1]
     price_range_dic = {}
     for item in price_range:
         price_range_dic[item['item_id']] = [item['max'], item['min']]
     product_list = list(set(list(itertools.chain.from_iterable([rule['products'] for rule in hard_rule_list]))))
-    num_item = len(product_list)
-    # cvxpy library to solve linear programming problem 
-    x = cp.Variable((len(product_list), 1))
-    objective = cp.Minimize(cp.sum_squares(x)) # any surrogate objective
-    constraints = []
-    # add equality constraints
-    equal_list = [i for i in hard_rule_list if i['equality']==True]
-    if len(equal_list) != 0:
-        matrix1 = np.zeros((len(equal_list), len(product_list)))
-        shifts1 = []
-        for k in range(len(equal_list)):
-            products = equal_list[k]['products']
-            scales = equal_list[k]['scales']
-            scales = [float(s) for s in scales]
-            shift = equal_list[k]['shift']
-            for j, product in enumerate(products):
-                matrix1[k, product_list.index(product)] = float(scales[j])
-            shifts1.append(shift)
-        shifts1 = np.array(shifts1).reshape(-1, 1)
-        constraints.append(matrix1@x-shifts1==0)
-    # add inequality constraints
-    inequal_list = [i for i in hard_rule_list if i['equality']==False]
-    if len(inequal_list) != 0:
-        matrix2 = np.zeros((len(inequal_list), len(product_list)))
-        penalty = []
-        shifts2 = []
-        for i in range(len(inequal_list)):
-            products = inequal_list[i]['products']
-            scales = inequal_list[i]['scales']
-            scales = [float(s) for s in scales]
-            shift = inequal_list[i]['shift']
-            for j, product in enumerate(products):
-                print(i, j)
-                matrix2[i, product_list.index(product)] = float(scales[j])
-            shifts2.append(shift)
-        shifts2 = np.array(shifts2).reshape(-1, 1)
-        constraints.append(matrix2@x-shifts2>=0)
-    # add price range constraints
-    for i, product in enumerate(product_list):
+    product_to_idx = {column: i for i, column in enumerate(product_list)}
+    # 2. Find valid price vectors to start
+    # 2.1. put hard equalities into matrix form
+    matrix1, shifts1, _ = list_to_matrix(hard_rule_eq_list, product_to_idx, 10)
+    # 2.2. put hard inequalities into matrix form
+    matrix2_1, shifts2_1, _ = list_to_matrix(hard_rule_small_list, product_to_idx, 10)
+    matrix2_1 = matrix2_1*(-1)
+    shifts2_1 = shifts2_1*(-1)+0.0001
+    matrix2_2, shifts2_2, _ = list_to_matrix(hard_rule_large_list, product_to_idx, 10)
+    shifts2_2 = shifts2_2+0.0001
+    matrix2_3, shifts2_3, _ = list_to_matrix(hard_rule_smalleq_list, product_to_idx, 10)
+    matrix2_3 = matrix2_3*(-1)
+    shifts2_3 = shifts2_3*(-1)
+    matrix2_4, shifts2_4, _ = list_to_matrix(hard_rule_largeeq_list, product_to_idx, 10)
+    # 2.2.2. adding price ranges
+    prices = product_list
+    # 2.2.2.1 adding price floor
+    matrix2_5 = np.zeros((2*len(prices), len(prices)))
+    shifts2_5 = np.zeros((2*len(prices), 1))
+    for i, product in enumerate(prices):
+        matrix2_5[i, i] = 1.
         if int(product) not in price_range_dic.keys():
-            constraints.append(x[i][0] <= 20.)
-            constraints.append(x[i][0] >= 0.)
+            print('product {} is not given price range, assumed to be within [0.5, 20].'.format(product))
+            shifts2_5[i,0] = 0.5
         else:
-            constraints.append(x[i][0] >= price_range_dic[int(product)][1])
-            constraints.append(x[i][0] <= price_range_dic[int(product)][0])
-    prob = cp.Problem(objective, constraints)
-    # The optimal objective value is returned by `prob.solve()`.
-    result = prob.solve()
+            shifts2_5[i,0] = price_range_dic[int(product)][1]
+    # 2.2.2.1 adding price cap
+    for i, product in enumerate(prices):
+        matrix2_5[len(prices)+i, i] = -1.
+        if int(product) not in price_range_dic.keys():
+            shifts2_5[len(prices)+i,0] = -20.
+        else:
+            shifts2_5[len(prices)+i,0] = -price_range_dic[int(product)][0]
+    # 2.2.3. Put together hard inequality and price range
+    matrix2 = np.vstack([matrix2_1, matrix2_2, matrix2_3, matrix2_4, matrix2_5])
+    shifts2 = np.vstack([shifts2_1, shifts2_2, shifts2_3, shifts2_4, shifts2_5])
+    # 2.3. get 2 valid individuals from linear programming
+    val_ind2, status2 = solve_cvx(matrix1, shifts1, matrix2, shifts2, 'sum_squares')
     # return the result
-    if prob.status == 'infeasible':
+    if status2 == 'infeasible':
         return jsonify({'conflict':'Conflict exists'})
     else:
         return jsonify({'conflict':'No conflict'})

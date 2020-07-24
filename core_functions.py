@@ -99,7 +99,7 @@ def cxTwoPointCopy(ind1, ind2):
 def list_to_matrix(rules, product_to_idx, penalty):
     """
     rules (list): rules
-    product_to_idx (dict): 
+    product_to_idx (dict)
     """
     matrix1 = np.zeros((len(rules), len(product_to_idx)))
     shifts1 = np.zeros((len(rules), 1))
@@ -126,10 +126,16 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     rule_list_old, price_range = rules
     rule_list = [rule for rule in rule_list_old if set(rule['products']).issubset(set(product_to_idx.keys()))] # filter out the ones not in price_columns
     print('{} out of {} rules contain products not in price_columns.'.format(len(rule_list_old)-len(rule_list), len(rule_list_old)))
-    hard_rule_eq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == True)]
-    hard_rule_ineq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == False)]
-    soft_rule_eq_list = [i for i in rule_list if (i['penalty'] != -1 and i['equality'] == True)]
-    soft_rule_ineq_list = [i for i in rule_list if (i['penalty'] != -1 and i['equality'] == False)]
+    hard_rule_eq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 0)]
+    hard_rule_small_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 1)]
+    hard_rule_large_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 2)]
+    hard_rule_smalleq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 3)]
+    hard_rule_largeeq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 4)]
+    soft_rule_eq_list = [i for i in rule_list if (i['penalty'] != -1 and i['equality'] == 0)]
+    soft_rule_small_list = [i for i in rule_list if (i['penalty'] != -1 and i['equality'] == 1)]
+    soft_rule_large_list = [i for i in rule_list if (i['penalty'] != -1 and i['equality'] == 2)]
+    soft_rule_smalleq_list = [i for i in rule_list if (i['penalty'] != -1 and i['equality'] == 3)]
+    soft_rule_largeeq_list = [i for i in rule_list if (i['penalty'] != -1 and i['equality'] == 4)]
     price_range_dic = {}
     for item in price_range:
         price_range_dic[item['item_id']] = [item['max'], item['min']]
@@ -137,31 +143,39 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     # 2.1. put hard equalities into matrix form
     matrix1, shifts1, penalty1 = list_to_matrix(hard_rule_eq_list, product_to_idx, penalty_hard_constant)
     # 2.2. put hard inequalities into matrix form
-    matrix2, shifts2, penalty2 = list_to_matrix(hard_rule_ineq_list, product_to_idx, penalty_hard_constant)
+    matrix2_1, shifts2_1, penalty2_1 = list_to_matrix(hard_rule_small_list, product_to_idx, penalty_hard_constant)
+    matrix2_1 = matrix2_1*(-1)
+    shifts2_1 = shifts2_1*(-1)+0.0001
+    matrix2_2, shifts2_2, penalty2_2 = list_to_matrix(hard_rule_large_list, product_to_idx, penalty_hard_constant)
+    shifts2_2 = shifts2_2+0.0001
+    matrix2_3, shifts2_3, penalty2_3 = list_to_matrix(hard_rule_smalleq_list, product_to_idx, penalty_hard_constant)
+    matrix2_3 = matrix2_3*(-1)
+    shifts2_3 = shifts2_3*(-1)
+    matrix2_4, shifts2_4, penalty2_4 = list_to_matrix(hard_rule_largeeq_list, product_to_idx, penalty_hard_constant)
     # 2.2.2. adding price ranges
     prices = [i.split('_')[1] for i in price_columns]
     # 2.2.2.1 adding price floor
-    matrix2_1 = np.zeros((2*len(prices), len(prices)))
-    shifts2_1 = np.zeros((2*len(prices), 1))
+    matrix2_5 = np.zeros((2*len(prices), len(prices)))
+    shifts2_5 = np.zeros((2*len(prices), 1))
     for i, product in enumerate(prices):
-        matrix2_1[i, i] = 1.
+        matrix2_5[i, i] = 1.
         if int(product) not in price_range_dic.keys():
             print('product {} is not given price range, assumed to be within [0.5, 20].'.format(product))
-            shifts2_1[i,0] = 0.5
+            shifts2_5[i,0] = 0.5
         else:
-            shifts2_1[i,0] = price_range_dic[int(product)][1]
+            shifts2_5[i,0] = price_range_dic[int(product)][1]
     # 2.2.2.1 adding price cap
     for i, product in enumerate(prices):
-        matrix2_1[len(prices)+i, i] = -1.
+        matrix2_5[len(prices)+i, i] = -1.
         if int(product) not in price_range_dic.keys():
-            shifts2_1[len(prices)+i,0] = -20.
+            shifts2_5[len(prices)+i,0] = -20.
         else:
-            shifts2_1[len(prices)+i,0] = -price_range_dic[int(product)][0]
-    penalty2_1 = np.full((matrix2_1.shape[0],1), penalty_hard_constant)
+            shifts2_5[len(prices)+i,0] = -price_range_dic[int(product)][0]
+    penalty2_5 = np.full((matrix2_5.shape[0],1), penalty_hard_constant)
     # 2.2.3. Put together hard inequality and price range
-    matrix2 = np.vstack([matrix2, matrix2_1])
-    shifts2 = np.vstack([shifts2, shifts2_1])
-    penalty2 = np.vstack([penalty2, penalty2_1])
+    matrix2 = np.vstack([matrix2_1, matrix2_2, matrix2_3, matrix2_4, matrix2_5])
+    shifts2 = np.vstack([shifts2_1, shifts2_2, shifts2_3, shifts2_4, shifts2_5])
+    penalty2 = np.vstack([penalty2_1, penalty2_2, penalty2_3, penalty2_4, penalty2_5])
     # 2.3. get 2 valid individuals from linear programming
     val_ind1, status1 = solve_cvx(matrix1, shifts1, matrix2, shifts2, 'sum')
     val_ind2, status2 = solve_cvx(matrix1, shifts1, matrix2, shifts2, 'sum_squares')
@@ -171,8 +185,21 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     print('val_ind2 shape: {}'.format(val_ind2.shape))
     assert status1 != 'infeasible' and status2 != 'infeasible', 'Hard constraints must have feasible region.'
     # 3. Put soft constraints into matrix form
+    # 3.1. soft equality
     matrix3, shifts3, penalty3 = list_to_matrix(soft_rule_eq_list, product_to_idx, penalty_soft_constant)
-    matrix4, shifts4, penalty4 = list_to_matrix(soft_rule_ineq_list, product_to_idx, penalty_soft_constant)
+    # 3.2. soft inequality
+    matrix4_1, shifts4_1, penalty4_1 = list_to_matrix(soft_rule_small_list, product_to_idx, penalty_soft_constant)
+    matrix4_1 = matrix4_1*(-1)
+    shifts4_1 = shifts4_1*(-1)+0.0001
+    matrix4_2, shifts4_2, penalty4_2 = list_to_matrix(soft_rule_large_list, product_to_idx, penalty_soft_constant)
+    shifts4_2 = shifts4_2+0.0001
+    matrix4_3, shifts4_3, penalty4_3 = list_to_matrix(soft_rule_smalleq_list, product_to_idx, penalty_soft_constant)
+    matrix4_3 = matrix4_3*(-1)
+    shifts4_3 = shifts4_3*(-1)
+    matrix4_4, shifts4_4, penalty4_4 = list_to_matrix(soft_rule_largeeq_list, product_to_idx, penalty_soft_constant)
+    matrix4 = np.vstack([matrix4_1, matrix4_2, matrix4_3, matrix4_4])
+    shifts4 = np.vstack([shifts4_1, shifts4_2, shifts4_3, shifts4_4])
+    penalty4 = np.vstack([penalty4_1, penalty4_2, penalty4_3, penalty4_4])
     # 4. Run GA using DEAP library
     # 4.1. Define fitness function
     def evalObjective(individual, report=False):
@@ -202,7 +229,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
         mask4 = temp4 < 0
         penalty_4 = mask4.T.dot(penalty4)
         if report:
-            return [output, np.sum(mask1), np.sum(mask2), np.sum(mask3), np.sum(mask4)]
+            return [output, np.sum(mask1)+np.sum(mask2), np.sum(mask3)+np.sum(mask4)]
         if penalty_1.shape[0] > 0 and penalty_1.shape[1] > 0:
             output -= penalty_1[0,0]
         if penalty_2.shape[0] > 0 and penalty_2.shape[1] > 0:
