@@ -90,9 +90,6 @@ def train():
     model is returned as .pkl and saved to disk in the project
     folder.
     '''
-    # Set Working Directory
-    HOME = os.environ['HOME_SITE']
-    # HOME = ''
 
     # Retrieve request details
     app.logger.info('REQUEST DETAILS RETREIVAL')
@@ -188,14 +185,6 @@ def predict():
     uploads the models to fillet-function to get sales quantity
     estimates for the given set of prices.
     '''
-    # # Set current working directory
-    # HOME = os.environ['HOME_SITE']
-    # # HOME = ''
-
-    # # Function Key required to call fillet-functions
-    # # with open('keys.json') as f:
-    # #       HOST_KEY = json.load(f)['host_key']
-    # HOST_KEY = os.environ['FUNCTIONS_KEY']
 
     with open(HOME + '/fillet_functions_api_endpoints.json') as f:
         fillet_func_urls = json.load(f)
@@ -252,52 +241,13 @@ def predict():
         prices = prices[model._Booster.feature_names]
         pred = model.predict(data=prices)
         pred_value = int(pred[0])
-        pred_quantities_dict[item] = pred_value
+        pred_quantities_dict[f'Qty_{item}'] = pred_value
 
     app.logger.info('LOCAL PREDICT SUCCESS')
     app.logger.info('RETURNING RESPONSE')
     # Send qty_estimate in reponse
     response_outp = {'qty_estimates': pred_quantities_dict}
     return jsonify(response_outp)
-
-    # ============================================
-
-    # # Dump all required info into dict
-    # data_dict = {
-    #     'prices': prices_json,
-    #     'models': models_list,
-    # }
-
-    # # Dump dict to pickle binary
-    # data = p.dumps(data_dict)
-
-    # # Authentication key for fillet-functions
-    # payload = {
-    #     'code': HOST_KEY,
-    # }
-
-    # # Send predict request to fillet-functions
-    # url = fillet_func_urls[modeltype]['predict']
-    # # url = 'https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_4_predictbatch'
-    # app.logger.info('SENDING REQUEST TO FILLET SERVERS')
-    # result = requests.post(url, params=payload, data=data)
-
-    # # Log response status code
-    # app.logger.info(f'RESPONSE RECEIVED FROM FILLET {result.status_code}')
-    
-    # # fillet-functions responds with dict of qty_estimates
-    # pred_quantities = result.json()['qty_estimates']
-
-    # # Reformat estimates for neater response 
-    # pred_quantities_dict = {}
-    # for item, qty_estimate in zip(items, pred_quantities):
-    #     pred_quantities_dict[f'Qty_{item}'] = int(round(
-    #         float(qty_estimate), 0))
-
-    # # Send qty_estimate in reponse
-    # response_outp = {'qty_estimates': pred_quantities_dict}
-    # app.logger.info('RETURNING RESPONSE')
-    # return jsonify(response_outp)
 
 
 @app.route('/query_progress/', methods=['POST'])
@@ -307,9 +257,6 @@ def query_progress():
     created by a train request, responds with training progress.
     Otherwise returns error to prompt user to resend train request.
     '''
-    # Set current working directory
-    HOME = os.environ['HOME_SITE']
-    # HOME = ''
 
     # Get request details
     project_id = request.get_json()['project_id']
@@ -369,9 +316,6 @@ def batch_query_progress():
     created by a train request, responds with training progress.
     Otherwise returns error to prompt user to resend train request.
     '''
-    # Set current working directory
-    HOME = os.environ['HOME_SITE']
-    # HOME = ''
 
     # Get request details
     project_id_ls = request.get_json()['project_id_ls']
@@ -433,9 +377,6 @@ def get_cv_results():
     '''This function attempts to locate and return all
     completed cv results for a given project_id.
     '''
-    # Set current working directory
-    HOME = os.environ['HOME_SITE']
-    # HOME = ''
 
     # Get request details
     project_id = request.get_json()['project_id']
@@ -488,9 +429,6 @@ def get_feature_importances():
     '''This function returns feature importances for all 
     item models in a project.
     '''
-    # Set current working directory
-    HOME = os.environ['HOME_SITE']
-    # HOME = ''
 
     # Get request details
     project_id = request.get_json()['project_id']
