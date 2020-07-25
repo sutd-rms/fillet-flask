@@ -363,7 +363,10 @@ class rms_pricing_model():
             perf_df = perf_df.append(task.result(), ignore_index=True)
 
         # remove temp cv folder
-        shutil.rmtree('temp/cv')
+        try:
+            shutil.rmtree('temp/cv')
+        except:
+            pass
 
         # Check That All Models are Trained, Else Retrain
         proj_cv_path = HOME + f'/projects/{proj_id}/cv'
@@ -544,4 +547,7 @@ class rms_pricing_model():
         log.info(f'TRAINING COMPLETED FOR {len(item_ids)} ITEMS.')
 
         # remove temp train folder
-        shutil.rmtree('temp/train')
+        try:
+            shutil.rmtree('temp/train')
+        except:
+            pass

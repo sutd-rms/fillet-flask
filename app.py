@@ -126,7 +126,10 @@ def train():
     app.logger.info('DATA SUCCESSFULLY LOADED')
 
     # Delete content from temp folder
-    shutil.rmtree(temp_data_path)
+    try:
+        shutil.rmtree(temp_data_path)
+    except:
+        pass
 
     # Initialize rms_pricing_model Object with data
     pdm = rms_pricing_model(data_df)
@@ -176,6 +179,22 @@ def train():
 
         # Log Successful CV
         app.logger.info(f'CROSS VALIDATION DONE')
+
+
+    # Get Model Feature Importances
+    app.logger.info('GETTING FEATURE IMPORTANCES')
+    models_path = price_info_path + 'models/'
+    importances_dict = {}
+    for item in item_ids:
+        item_model = pdm.models[item]
+        item_imp_df = get_top_features(item_model, n=10)
+        importances_dict[item] = item_imp_df.to_dict()
+
+    # Save Model Importances to Disk
+    with open(price_info_path + 'proj_fimportance.json', 'w') as outfile:
+            json.dump(importances_dict, outfile)
+
+
 
     return jsonify(response_outp)
 
@@ -283,9 +302,6 @@ def query_progress():
         [int(x.split('_')[1].split('.')[0]) for x in model_filenames])
     remaining_models = project_items - trained_models
 
-    # Check if CV is completed
-    cv_done = 0
-
     # Attempt to locate and count the number of cv results completed
     cv_path = HOME + f'/projects/{project_id}/cv'
     try:
@@ -295,9 +311,15 @@ def query_progress():
         cv_progress = 0
 
     # If CV is 100% complete, 'proj_cv_perf.json' also exists.
+    cv_done = 0
     proj_dir = os.listdir(proj_path)
     if 'proj_cv_perf.json' in proj_dir:
         cv_done = 1
+ 
+    # If Feature Importances are Complete 'proj_fimporance.json' also exists
+    fi_done = 0
+    if 'proj_fimportance.json' in proj_dir:
+        fi_done = 1
 
     # Format response
     response_outp = {
@@ -306,7 +328,8 @@ def query_progress():
         'project_items': list(project_items),
         'train_complete': list(trained_models),
         'cv_done': cv_done,
-        'cv_progress': round(cv_progress / len(project_items), 3) * 100
+        'cv_progress': round(cv_progress / len(project_items), 3) * 100,
+        'fi_done': fi_done
     }
     return jsonify(response_outp)
 
@@ -331,21 +354,20 @@ def batch_query_progress():
                 proj_properties = json.load(json_file)
             project_items = set(proj_properties['items'])
         except:
-            return jsonify({'error': 'project not found'})
+            batch_outp[project_id] = 'project not found'
+            continue
 
         # Project exists, attempt to locate existing trained models
         try:
             model_filenames = os.listdir(proj_path + 'models')
         except:
-            return jsonify({'pct_complete': 0})
+            batch_outp[project_id] = 'training not started'
+            continue
 
         # Trained models exist, determine how many are left to train.
         trained_models = set(
             [int(x.split('_')[1].split('.')[0]) for x in model_filenames])
         remaining_models = project_items - trained_models
-
-        # Check if CV is completed
-        cv_done = 0
 
         # Attempt to locate and count the number of cv results completed
         cv_path = HOME + f'/projects/{project_id}/cv'
@@ -356,9 +378,15 @@ def batch_query_progress():
             cv_progress = 0
 
         # If CV is 100% complete, 'proj_cv_perf.json' also exists.
+        cv_done = 0
         proj_dir = os.listdir(proj_path)
         if 'proj_cv_perf.json' in proj_dir:
             cv_done = 1
+
+        # If Feature Importances are Complete 'proj_fimporance.json' also exists
+        fi_done = 0
+        if 'proj_fimportance.json' in proj_dir:
+            fi_done = 1
 
         # Format response
         response_outp = {
@@ -367,7 +395,8 @@ def batch_query_progress():
             'project_items': list(project_items),
             'train_complete': list(trained_models),
             'cv_done': cv_done,
-            'cv_progress': round(cv_progress / len(project_items), 3) * 100
+            'cv_progress': round(cv_progress / len(project_items), 3) * 100,
+            'fi_done': fi_done
         }
         batch_outp[project_id] = response_outp
     return jsonify(batch_outp)
@@ -447,18 +476,29 @@ def get_feature_importances():
     except:
         return jsonify({'error': 'project not found'})
 
-    models_path = proj_path + 'models/'
+    # Check if Feature Importances Complete
+    proj_dir = os.listdir(proj_path)
+    if 'proj_fimportance.json' not in proj_dir:
+        return jsonify({'error': 'feature importances not complete.'})
+
+    else:
+        with open(proj_path + 'proj_fimportance.json') as json_file:
+            f_importances = json.load(json_file)
+
+    return f_importances
+
+    # models_path = proj_path + 'models/'
     
-    response_outp = {}
+    # response_outp = {}
 
-    for item in project_items:
-        model_filename = models_path + f'model_{item}.p'
-        with open(model_filename, 'rb') as f:
-            item_model = p.load(f)
-        imp_df = get_top_features(item_model, n=10)
-        response_outp[item] = imp_df.to_dict()
+    # for item in project_items:
+    #     model_filename = models_path + f'model_{item}.p'
+    #     with open(model_filename, 'rb') as f:
+    #         item_model = p.load(f)
+    #     imp_df = get_top_features(item_model, n=10)
+    #     response_outp[item] = imp_df.to_dict()
 
-    return response_outp
+    # return response_outp
 
 
 @app.route('/detect_conflict/', methods=['POST'])
