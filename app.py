@@ -1,7 +1,6 @@
 from flask import Flask, request, redirect, url_for, flash, jsonify
 from helper_functions import optimize_floats, optimize_memory, get_top_features
-from core_functions import rms_pricing_model
-# from core_functions import rms_pricing_model, GA
+from core_functions import rms_pricing_model, list_to_matrix, solve_cvx
 import numpy as np
 import pickle as p
 

@@ -8,6 +8,12 @@ import pickle as p
 # from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
 # from sklearn.model_selection import LeaveOneGroupOut
 
+import cvxpy as cp # for conflict detection
+from deap import algorithms # for GA
+from deap import base # for GA
+from deap import creator # for GA
+from deap import tools # for GA
+
 import sys
 import json
 import requests
@@ -37,6 +43,81 @@ HOME = os.environ['HOME_SITE']
 #       HOST_KEY = json.load(f)['host_key']
 HOST_KEY = os.environ['FUNCTIONS_KEY']
 
+# input: price_std, price_mean, price_names, constraints(in pre-specified json format), regressors (in dictionary), 
+# population, generation, costs(optional), pre-set penalty constants, step(for prices), 
+# random_seed for replication of results
+def solve_cvx(eq, eq_s, ineq, ineq_s, mode):
+    """
+    eq, eq_s, ineq, ineq_s,: np.array
+    p_c (list): price_columns
+    p_r (dict): price_range
+    mode (str): 'sum' or 'sum_squares'
+    """
+    import cvxpy as cp
+    assert (np.sum(eq!=0)>0 or np.sum(ineq!=0)>0), 'Must at least have some constraints, cannot all be None.'
+    x = cp.Variable((eq.shape[1], 1))
+    if mode == 'sum':
+        objective = cp.Minimize(cp.sum(x)) # any surrogate objective
+    elif mode == 'sum_squares':
+        objective = cp.Minimize(cp.sum_squares(x))
+    else:
+        return None
+    constraints = []
+    if np.sum(eq!=0)>0: # if all of them are zero, then no need to add
+        constraints.append(eq@x-eq_s == 0)
+    if np.sum(ineq!=0)>0:
+        constraints.append(ineq@x-ineq_s >= 0)
+    prob = cp.Problem(objective, constraints)
+    result = prob.solve()
+    return x.value, prob.status
+
+def cxTwoPointCopy(ind1, ind2):
+    """Execute a two points crossover with copy on the input individuals. The
+    copy is required because the slicing in numpy returns a view of the data,
+    which leads to a self overwritting in the swap operation. It prevents
+    ::
+    
+        >>> import numpy
+        >>> a = numpy.array((1,2,3,4))
+        >>> b = numpy.array((5,6,7,8))
+        >>> a[1:3], b[1:3] = b[1:3], a[1:3]
+        >>> print(a)
+        [1 6 7 4]
+        >>> print(b)
+        [5 6 7 8]
+    """
+    size = len(ind1)
+    cxpoint1 = random.randint(1, size)
+    cxpoint2 = random.randint(1, size - 1)
+    if cxpoint2 >= cxpoint1:
+        cxpoint2 += 1
+    else: # Swap the two cx points
+        cxpoint1, cxpoint2 = cxpoint2, cxpoint1
+
+    ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] \
+        = ind2[cxpoint1:cxpoint2].copy(), ind1[cxpoint1:cxpoint2].copy()
+    return ind1, ind2
+
+def list_to_matrix(rules, product_to_idx, penalty):
+    """
+    rules (list): rules
+    product_to_idx (dict)
+    """
+    matrix1 = np.zeros((len(rules), len(product_to_idx)))
+    shifts1 = np.zeros((len(rules), 1))
+    penalty1 = np.zeros((len(rules), 1))
+    for k in range(len(rules)):
+        products = rules[k]['products']
+        scales = rules[k]['scales']
+        scales = [float(s) for s in scales]
+        for j, product in enumerate(products):
+            matrix1[k, product_to_idx[product]] = float(scales[j])
+        shifts1[k,0] = float(rules[k]['shift'])
+        if rules[k]['penalty'] == -1:
+            penalty1[k,0] = penalty
+        else:
+            penalty1[k,0] = rules[k]['penalty']*penalty # e.g. 4 * 10000
+    return matrix1, shifts1, penalty1
 
 # class GA(object):
 
