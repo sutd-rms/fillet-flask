@@ -469,11 +469,13 @@ def detect_conflict():
     constraints = request.get_json()['constraints']
     rule_list = constraints[0]
     hard_rule_list = [i for i in rule_list if i['penalty'] == -1]
-    hard_rule_eq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 0)]
-    hard_rule_small_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 1)]
-    hard_rule_large_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 2)]
-    hard_rule_smalleq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 3)]
-    hard_rule_largeeq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 4)]
+    if len(hard_rule_list) == 0:
+        return jsonify({'conflict':'No conflict.'})
+    hard_rule_eq_list = [i for i in hard_rule_list if i['equality'] == 0]
+    hard_rule_small_list = [i for i in hard_rule_list if i['equality'] == 1]
+    hard_rule_large_list = [i for i in hard_rule_list if i['equality'] == 2]
+    hard_rule_smalleq_list = [i for i in hard_rule_list if i['equality'] == 3]
+    hard_rule_largeeq_list = [i for i in hard_rule_list if i['equality'] == 4]
     price_range = constraints[1]
     price_range_dic = {}
     for item in price_range:
