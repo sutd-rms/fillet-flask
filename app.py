@@ -594,6 +594,7 @@ def optimize():
         name = file.strip().split('.')[0].split('_')[1]
         regressors[name] = p.load(open(model_path + file, 'rb'))
     # run optimization
+    app.logger.info(f'RUNNING OPTIMIZATION PROJ {project_id}')
     result = GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors, population, max_epoch)
                         # costs=None, penalty_hard_constant=1000000, penalty_soft_constant=100000, step=0.05, 
                         # random_seed=1

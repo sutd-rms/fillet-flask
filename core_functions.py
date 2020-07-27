@@ -124,6 +124,7 @@ def list_to_matrix(rules, product_to_idx, penalty):
 def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, regressors, population, generation, 
                         costs=None, penalty_hard_constant=1000000, penalty_soft_constant=1000, step=0.05, 
                         random_seed=1):
+    log.info('SETTING UP GA ENVIRONMENT')
     # 1. Preprocess rules and price limits
     num_item = len(price_columns)
     product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_columns)}
@@ -205,6 +206,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     shifts4 = np.vstack([shifts4_1, shifts4_2, shifts4_3, shifts4_4])
     penalty4 = np.vstack([penalty4_1, penalty4_2, penalty4_3, penalty4_4])
     # 4. Run GA using DEAP library
+    log.info('SETTING UP GA RULESET')
     # 4.1. Define fitness function
     def evalObjective(individual, report=False):
         """
@@ -267,6 +269,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
             output -= penalty_4[0,0]
         return (output,)
     # 4.2. Initialize individuals and operations
+    log.info('INITIALIZING INDIVIDUALS...')
     creator.create("RevenuePenalty", base.Fitness, weights=(1.,))
     creator.create("Individual", np.ndarray, fitness=creator.RevenuePenalty)
     toolbox = base.Toolbox()
@@ -279,6 +282,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
     toolbox.register("select", tools.selTournament, tournsize=3)
     # 4.3. Run the algoritm
+    log.info('RUNNING GA...')
     random.seed(64)
     pop = toolbox.population(n=population)
     pop.append(creator.Individual(val_ind1.round(2).flatten()))
@@ -295,6 +299,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     print('GA started running...')
     algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=generation, stats=stats,
                         halloffame=hof)
+    log.info('GA COMPLETED.')
     return pop, stats, hof, evalObjective(hof[0], report=True)
 
 # ====================================================
