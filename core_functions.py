@@ -35,13 +35,13 @@ log = logging.getLogger('fillet-flask.sub')
 
 
 # Set current working directory
-HOME = os.environ['HOME_SITE']
-# HOME = ''
+# HOME = os.environ['HOME_SITE']
+HOME = ''
 
 # Function Key required to call fillet-functions
-# with open('keys.json') as f:
-#       HOST_KEY = json.load(f)['host_key']
-HOST_KEY = os.environ['FUNCTIONS_KEY']
+with open('keys.json') as f:
+      HOST_KEY = json.load(f)['host_key']
+# HOST_KEY = os.environ['FUNCTIONS_KEY']
 
 # input: price_std, price_mean, price_names, constraints(in pre-specified json format), regressors (in dictionary), 
 # population, generation, costs(optional), pre-set penalty constants, step(for prices), 
@@ -224,7 +224,8 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
         # MULTITHREADED PREDICT
         pred_dict = {}
         quantity = np.zeros((num_item))
-        individual = individual.round(2)
+        f = lambda x: 0.05 * np.round(x/0.05)
+        individual = f(individual)
 
         def opti_predict(code, individual):
             X = pd.DataFrame(individual.reshape(1, -1), columns=price_columns)

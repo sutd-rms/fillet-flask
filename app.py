@@ -27,13 +27,13 @@ logging.basicConfig(
 
 
 # Set current working directory
-HOME = os.environ['HOME_SITE']
-# HOME = ''
+# HOME = os.environ['HOME_SITE']
+HOME = ''
 
 # Function Key required to call fillet-functions
-# with open('keys.json') as f:
-#       HOST_KEY = json.load(f)['host_key']
-HOST_KEY = os.environ['FUNCTIONS_KEY']
+with open('keys.json') as f:
+      HOST_KEY = json.load(f)['host_key']
+# HOST_KEY = os.environ['FUNCTIONS_KEY']
 
 
 @app.route("/")
@@ -41,45 +41,6 @@ def hello():
     return "fillet-flask is alive."
 
 
-# @app.route('/optimize/', methods=['POST'])
-# def optimize():
-#     app.logger.info('OPTIMIZE REQUEST RECEIVED')
-#     # get input
-#     project_id = request.get_json()['project_id']
-#     constraints = request.get_json()['constraints']
-#     population = request.get_json()['population']
-#     max_epoch = request.get_json()['max_epoch']
-#     # load price information
-#     price_info_path = 'projects/{}/price_info.pkl'.format(project_id)
-#     assert os.path.isfile(price_info_path), 'No price info file found.'
-#     price_std, price_mean, price_names = p.load(open(price_info_path, 'rb'))
-#     # load model
-#     MODEL_PATH = 'projects/{}/models'.format(project_id)
-#     assert os.path.isdir(MODEL_PATH), 'No model directory found.'
-#     models_list = [x for x in os.listdir(MODEL_PATH) if x.startswith('model')]
-#     # import pdb; pdb.set_trace()
-#     items = [int(x.split('.')[0].split('_')[1]) for x in models_list]
-
-#     models = []
-#     for item in items:
-#         item_model = XGBRegressor()
-#         item_model.load_model(MODEL_PATH + f'/model_{item}.json')
-#         models.append(item_model)
-
-#     Optimizer = GA()
-#     Optimizer.properties(models, population, max_epoch, price_std, price_mean,
-#                          price_names)
-#     best_price = Optimizer.run()
-
-#     # Send result as Dict to avoid confusion
-#     best_price_dict = {}
-#     for item, price in zip(items, best_price):
-#         best_price_dict[str(item)] = round(price, 2)
-#     # run optimization
-
-#     response_outp = {}
-#     response_outp['result'] = best_price_dict
-#     return jsonify(response_outp)
 
 
 @app.route('/train/', methods=['POST'])
@@ -164,6 +125,81 @@ def train():
     response_outp = {'result': 0, 'cv_acc': 0}
     response_outp['result'] = 'Success'
 
+
+    # Get Model Feature Importances
+    app.logger.info('GETTING FEATURE IMPORTANCES')
+    importances_dict = {}
+    for item in item_ids:
+        item_model = pdm.models[item]
+        item_imp_df = get_top_features(item_model, n=10)
+        importances_dict[item] = item_imp_df.to_dict()
+
+    # Save Model Importances to Disk
+    with open(price_info_path + 'proj_fimportance.json', 'w') as outfile:
+            json.dump(importances_dict, outfile)
+
+    # Get Elasticities
+    app.logger.info('GETTING ELASTICITY ESTIMATES')
+
+    # Get Baseline Prices
+    with open(price_info_path+'price_info.pkl', 'rb') as f:
+        price_info = p.load(f)
+        mean_prices = price_info[1]
+        # Round to nearest 5 cent
+        mean_prices = (mean_prices * 20).round() / 20
+        mean_prices = pd.DataFrame(mean_prices).transpose()
+
+    # Get Baseline Quantities
+    baseline_quantities_dict = {}
+
+    for item_id in item_ids:
+        item_model = pdm.models[item_id]
+        mean_prices = mean_prices[item_model._Booster.feature_names]
+        pred = item_model.predict(mean_prices).round()
+        baseline_quantities_dict[f'Qty_{item_id}'] = pred[0]
+
+    elasticity_dict = {}
+
+    # Get % Changes
+    for item in item_ids:
+        # If Prices go up by 10 cents...
+        item_price_increase = mean_prices.copy()
+        item_price_increase.loc[0,f'Price_{item}'] += 0.20
+        # How much do quantities change?
+        increase_quantities_dict = {}
+        for item_j_id in item_ids:
+            item_j_model = pdm.models[item_j_id]
+            mean_prices = mean_prices[item_j_model._Booster.feature_names]
+            pred = item_j_model.predict(item_price_increase).round()
+            increase_quantities_dict[f'Qty_{item_j_id}'] = pred[0]
+            
+        # If Prices go up by 10 cents...
+        item_price_decrease = mean_prices.copy()
+        item_price_decrease.loc[0,f'Price_{item}'] -= 0.20
+        # How much do quantities change?
+        decrease_quantities_dict = {}
+        for item_j_id in item_ids:
+            item_j_model = pdm.models[item_j_id]
+            mean_prices = mean_prices[item_j_model._Booster.feature_names]
+            pred = item_j_model.predict(item_price_decrease).round()
+            decrease_quantities_dict[f'Qty_{item_j_id}'] = pred[0]
+            
+        adjusted_quantities_df = pd.DataFrame([baseline_quantities_dict,
+                                               increase_quantities_dict,
+                                               decrease_quantities_dict
+                                              ],
+                                              index=['baseline_qty','increase_qty','decrease_qty']
+                                             ).transpose()
+
+        adjusted_quantities_df['increase_pct_chng'] = (adjusted_quantities_df['increase_qty'] - adjusted_quantities_df['baseline_qty']) / adjusted_quantities_df['baseline_qty']
+        adjusted_quantities_df['decrease_pct_chng'] = (adjusted_quantities_df['decrease_qty'] - adjusted_quantities_df['baseline_qty']) / adjusted_quantities_df['baseline_qty']
+        
+        elasticity_dict[item] = adjusted_quantities_df.to_dict()
+
+    # Save Model Importances to Disk
+    with open(price_info_path + 'proj_elasticity_estimates.json', 'w') as outfile:
+            json.dump(elasticity_dict, outfile)
+
     # User specified CV option
     if cv_acc == 'True':
         # Log CV Request
@@ -178,21 +214,6 @@ def train():
 
         # Log Successful CV
         app.logger.info(f'CROSS VALIDATION DONE')
-
-
-    # Get Model Feature Importances
-    app.logger.info('GETTING FEATURE IMPORTANCES')
-    models_path = price_info_path + 'models/'
-    importances_dict = {}
-    for item in item_ids:
-        item_model = pdm.models[item]
-        item_imp_df = get_top_features(item_model, n=10)
-        importances_dict[item] = item_imp_df.to_dict()
-
-    # Save Model Importances to Disk
-    with open(price_info_path + 'proj_fimportance.json', 'w') as outfile:
-            json.dump(importances_dict, outfile)
-
 
 
     return jsonify(response_outp)
@@ -320,6 +341,11 @@ def query_progress():
     if 'proj_fimportance.json' in proj_dir:
         fi_done = 1
 
+    # If Elasticity Estimates are Complete 'proj_elasticity_estimates.json' also exists
+    ee_done = 0
+    if 'proj_elasticity_estimates.json' in proj_dir:
+        ee_done = 1
+
     # Format response
     response_outp = {
         'pct_complete': round(
@@ -328,7 +354,8 @@ def query_progress():
         'train_complete': list(trained_models),
         'cv_done': cv_done,
         'cv_progress': round(cv_progress / len(project_items), 3) * 100,
-        'fi_done': fi_done
+        'fi_done': fi_done,
+        'ee_done': ee_done
     }
     return jsonify(response_outp)
 
@@ -387,6 +414,11 @@ def batch_query_progress():
         if 'proj_fimportance.json' in proj_dir:
             fi_done = 1
 
+        # If Elasticity Estimates are Complete 'proj_elasticity_estimates.json' also exists
+        ee_done = 0
+        if 'proj_elasticity_estimates.json' in proj_dir:
+            ee_done = 1
+
         # Format response
         response_outp = {
             'pct_complete': round(
@@ -395,7 +427,8 @@ def batch_query_progress():
             'train_complete': list(trained_models),
             'cv_done': cv_done,
             'cv_progress': round(cv_progress / len(project_items), 3) * 100,
-            'fi_done': fi_done
+            'fi_done': fi_done,
+            'ee_done': ee_done
         }
         batch_outp[project_id] = response_outp
     return jsonify(batch_outp)
@@ -486,18 +519,39 @@ def get_feature_importances():
 
     return f_importances
 
-    # models_path = proj_path + 'models/'
+@app.route('/get_elasticity_estimates/', methods=['POST'])
+def get_elasticity_estimates():
+    '''This function returns elasticity estimates for all 
+    item models in a project.
+    '''
+
+    # Get request details
+    project_id = request.get_json()['project_id']
     
-    # response_outp = {}
+    # Attempt to locate and load in project from project_id
+    proj_path = HOME + f'/projects/{project_id}/'
 
-    # for item in project_items:
-    #     model_filename = models_path + f'model_{item}.p'
-    #     with open(model_filename, 'rb') as f:
-    #         item_model = p.load(f)
-    #     imp_df = get_top_features(item_model, n=10)
-    #     response_outp[item] = imp_df.to_dict()
+    # If the project exists, get its list of item_ids
+    try:
+        with open(proj_path + 'proj_properties.json') as json_file:
+            proj_properties = json.load(json_file)
+        project_items = set(proj_properties['items'])
 
-    # return response_outp
+    # Otherwise, return error reponse
+    except:
+        return jsonify({'error': 'project not found'})
+
+    # Check if Feature Importances Complete
+    proj_dir = os.listdir(proj_path)
+    if 'proj_elasticity_estimates.json' not in proj_dir:
+        return jsonify({'error': 'elasticity estimates not complete.'})
+
+    else:
+        with open(proj_path + 'proj_elasticity_estimates.json') as json_file:
+            elasticity_estimates = json.load(json_file)
+
+    return elasticity_estimates
+
 
 
 @app.route('/detect_conflict/', methods=['POST'])
@@ -600,10 +654,12 @@ def optimize():
                         # random_seed=1
     if result:
         pop, stats, hof, report = result
+        f = lambda x: 0.05 * np.round(x/0.05)
+        best_ind = f(hof[0])
     
     # Send result as Dict to avoid confusion
         response_outp = {}
-        response_outp['result'] = np.array(hof[0]).tolist()
+        response_outp['result'] = np.array(best_ind).tolist()
         response_outp['report'] = [float(i) for i in report]
         response_outp['report_info'] = ['estimated revenue of the optimized price', 
                                        'number of hard constraints (including price ranges) violated',
