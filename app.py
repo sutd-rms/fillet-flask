@@ -164,7 +164,7 @@ def train():
     for item in item_ids:
         # If Prices go up by 10 cents...
         item_price_increase = mean_prices.copy()
-        item_price_increase.loc[0,f'Price_{item}'] += 0.20
+        item_price_increase.loc[0,f'Price_{item}'] += 0.10
         # How much do quantities change?
         increase_quantities_dict = {}
         for item_j_id in item_ids:
@@ -175,7 +175,7 @@ def train():
             
         # If Prices go up by 10 cents...
         item_price_decrease = mean_prices.copy()
-        item_price_decrease.loc[0,f'Price_{item}'] -= 0.20
+        item_price_decrease.loc[0,f'Price_{item}'] -= 0.10
         # How much do quantities change?
         decrease_quantities_dict = {}
         for item_j_id in item_ids:
