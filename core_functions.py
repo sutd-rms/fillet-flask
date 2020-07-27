@@ -119,141 +119,185 @@ def list_to_matrix(rules, product_to_idx, penalty):
             penalty1[k,0] = rules[k]['penalty']*penalty # e.g. 4 * 10000
     return matrix1, shifts1, penalty1
 
-# class GA(object):
+# ====================================================
 
-#     # initialize variables and lists
-#     def __init__(self):
+def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, regressors, population, generation, 
+                        costs=None, penalty_hard_constant=1000000, penalty_soft_constant=1000, step=0.05, 
+                        random_seed=1):
+    # 1. Preprocess rules and price limits
+    num_item = len(price_columns)
+    product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_columns)}
+    rule_list_old, price_range = rules
+    rule_list = [rule for rule in rule_list_old if set(rule['products']).issubset(set(product_to_idx.keys()))] # filter out the ones not in price_columns
+    print('{} out of {} rules contain products not in price_columns.'.format(len(rule_list_old)-len(rule_list), len(rule_list_old)))
+    hard_rule_eq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 0)]
+    hard_rule_small_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 1)]
+    hard_rule_large_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 2)]
+    hard_rule_smalleq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 3)]
+    hard_rule_largeeq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 4)]
+    soft_rule_eq_list = [i for i in rule_list if (i['penalty'] != -1 and i['equality'] == 0)]
+    soft_rule_small_list = [i for i in rule_list if (i['penalty'] != -1 and i['equality'] == 1)]
+    soft_rule_large_list = [i for i in rule_list if (i['penalty'] != -1 and i['equality'] == 2)]
+    soft_rule_smalleq_list = [i for i in rule_list if (i['penalty'] != -1 and i['equality'] == 3)]
+    soft_rule_largeeq_list = [i for i in rule_list if (i['penalty'] != -1 and i['equality'] == 4)]
+    price_range_dic = {}
+    for item in price_range:
+        price_range_dic[item['item_id']] = [item['max'], item['min']]
+    # 2. Find valid price vectors to start
+    # 2.1. put hard equalities into matrix form
+    matrix1, shifts1, penalty1 = list_to_matrix(hard_rule_eq_list, product_to_idx, penalty_hard_constant)
+    # 2.2. put hard inequalities into matrix form
+    matrix2_1, shifts2_1, penalty2_1 = list_to_matrix(hard_rule_small_list, product_to_idx, penalty_hard_constant)
+    matrix2_1 = matrix2_1*(-1)
+    shifts2_1 = shifts2_1*(-1)+0.0001
+    matrix2_2, shifts2_2, penalty2_2 = list_to_matrix(hard_rule_large_list, product_to_idx, penalty_hard_constant)
+    shifts2_2 = shifts2_2+0.0001
+    matrix2_3, shifts2_3, penalty2_3 = list_to_matrix(hard_rule_smalleq_list, product_to_idx, penalty_hard_constant)
+    matrix2_3 = matrix2_3*(-1)
+    shifts2_3 = shifts2_3*(-1)
+    matrix2_4, shifts2_4, penalty2_4 = list_to_matrix(hard_rule_largeeq_list, product_to_idx, penalty_hard_constant)
+    # 2.2.2. adding price ranges
+    prices = [i.split('_')[1] for i in price_columns]
+    # 2.2.2.1 adding price floor
+    matrix2_5 = np.zeros((2*len(prices), len(prices)))
+    shifts2_5 = np.zeros((2*len(prices), 1))
+    for i, product in enumerate(prices):
+        matrix2_5[i, i] = 1.
+        if int(product) not in price_range_dic.keys():
+            print('product {} is not given price range, assumed to be within [0.5, 20].'.format(product))
+            shifts2_5[i,0] = 0.5
+        else:
+            shifts2_5[i,0] = price_range_dic[int(product)][1]
+    # 2.2.2.1 adding price cap
+    for i, product in enumerate(prices):
+        matrix2_5[len(prices)+i, i] = -1.
+        if int(product) not in price_range_dic.keys():
+            shifts2_5[len(prices)+i,0] = -20.
+        else:
+            shifts2_5[len(prices)+i,0] = -price_range_dic[int(product)][0]
+    penalty2_5 = np.full((matrix2_5.shape[0],1), penalty_hard_constant)
+    # 2.2.3. Put together hard inequality and price range
+    matrix2 = np.vstack([matrix2_1, matrix2_2, matrix2_3, matrix2_4, matrix2_5])
+    shifts2 = np.vstack([shifts2_1, shifts2_2, shifts2_3, shifts2_4, shifts2_5])
+    penalty2 = np.vstack([penalty2_1, penalty2_2, penalty2_3, penalty2_4, penalty2_5])
+    # 2.3. get 2 valid individuals from linear programming
+    val_ind1, status1 = solve_cvx(matrix1, shifts1, matrix2, shifts2, 'sum')
+    val_ind2, status2 = solve_cvx(matrix1, shifts1, matrix2, shifts2, 'sum_squares')
+    print('status 1: {}'.format(status1))
+    print('status 2: {}'.format(status2))
+    print('val_ind1 shape: {}'.format(val_ind1.shape))
+    print('val_ind2 shape: {}'.format(val_ind2.shape))
+    assert status1 != 'infeasible' and status2 != 'infeasible', 'Hard constraints must have feasible region.'
+    # 3. Put soft constraints into matrix form
+    # 3.1. soft equality
+    matrix3, shifts3, penalty3 = list_to_matrix(soft_rule_eq_list, product_to_idx, penalty_soft_constant)
+    # 3.2. soft inequality
+    matrix4_1, shifts4_1, penalty4_1 = list_to_matrix(soft_rule_small_list, product_to_idx, penalty_soft_constant)
+    matrix4_1 = matrix4_1*(-1)
+    shifts4_1 = shifts4_1*(-1)+0.0001
+    matrix4_2, shifts4_2, penalty4_2 = list_to_matrix(soft_rule_large_list, product_to_idx, penalty_soft_constant)
+    shifts4_2 = shifts4_2+0.0001
+    matrix4_3, shifts4_3, penalty4_3 = list_to_matrix(soft_rule_smalleq_list, product_to_idx, penalty_soft_constant)
+    matrix4_3 = matrix4_3*(-1)
+    shifts4_3 = shifts4_3*(-1)
+    matrix4_4, shifts4_4, penalty4_4 = list_to_matrix(soft_rule_largeeq_list, product_to_idx, penalty_soft_constant)
+    matrix4 = np.vstack([matrix4_1, matrix4_2, matrix4_3, matrix4_4])
+    shifts4 = np.vstack([shifts4_1, shifts4_2, shifts4_3, shifts4_4])
+    penalty4 = np.vstack([penalty4_1, penalty4_2, penalty4_3, penalty4_4])
+    # 4. Run GA using DEAP library
+    # 4.1. Define fitness function
+    def evalObjective(individual, report=False):
+        """
+        returns:
+        (revenue, penalty_): revenue of this individual and penalty from it violating the constraints
+        """
+        # # Calculating revenue
+        # quantity = np.zeros((num_item))
+        # individual = individual.round(2)
+        # for code in regressors: # TODO: use multiple workers here to speedup the optimization process
+        #     X = pd.DataFrame(individual.reshape(1, -1), columns=price_columns)
+        #     X = X.reindex(sorted(X.columns), axis=1)
+        #     quantity[product_to_idx[code]] = regressors[code].predict(X)
 
-#         self.models = []
-#         self.price_std = []
-#         self.price_mean = []
-#         self.parents = []
-#         self.newparents = []
-#         self.bests = []
-#         self.best_p = []
-#         self.price_names = []
-#         self.iterated = 1
-#         self.population = 0
-#         self.epoch = 0
-#         self.best_price = []
+        # MULTITHREADED PREDICT
+        pred_dict = {}
+        quantity = np.zeros((num_item))
+        individual = individual.round(2)
 
-#         # increase max recursion for long stack
-#         iMaxStackSize = 15000
-#         sys.setrecursionlimit(iMaxStackSize)
+        def opti_predict(code, individual):
+            X = pd.DataFrame(individual.reshape(1, -1), columns=price_columns)
+            X = X.reindex(sorted(X.columns), axis=1)
+            pred_dict[code] = regressors[code].predict(X)
 
-#     # create the initial population
-#     def initialize(self):
-#         self.num_item = self.price_mean.shape[0]
-#         for i in range(self.population):
-#             parent = (
-#                 np.random.standard_normal(self.num_item) * self.price_std * 2 +
-#                 self.price_mean).tolist()
-#             self.parents.append(parent)
+        opti_processes = []
+        opti_results_ls = []
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            for code in regressors:
+                opti_processes.append(executor.submit(opti_predict, code, individual))
+        for task in as_completed(opti_processes):
+            opti_results_ls.append(task.result())
 
-#     # set the details of this problem
-#     def properties(self, models, population, max_epoch, price_std, price_mean,
-#                    price_names):
+        for code in regressors:
+            quantity[product_to_idx[code]] = pred_dict[code]
 
-#         self.models = models
-#         self.population = population
-#         self.epoch = max_epoch
-#         self.price_std = price_std
-#         self.price_mean = price_mean
-#         self.price_names = price_names
-#         self.initialize()
 
-#     # calculate the fitness function for X
-#     def fitness(self, prices):
+        # Calculating constraint violation penalty
+        output = individual.dot(quantity)
+        temp1 = (matrix1.dot(individual.reshape(-1, 1)) - shifts1).round(2)
+        mask1 = temp1 != 0
+        penalty_1 = mask1.T.dot(penalty1)
+        temp2 = (matrix2.dot(individual.reshape(-1, 1)) - shifts2).round(2)
+        mask2 = temp2 < 0
+        penalty_2 = mask2.T.dot(penalty2)
+        temp3 = (matrix3.dot(individual.reshape(-1, 1)) - shifts3).round(2)
+        mask3 = temp3 != 0
+        penalty_3 = mask3.T.dot(penalty3)
+        temp4 = (matrix4.dot(individual.reshape(-1, 1)) - shifts4).round(2)
+        mask4 = temp4 < 0
+        penalty_4 = mask4.T.dot(penalty4)
+        if report:
+            return [output, np.sum(mask1)+np.sum(mask2), np.sum(mask3)+np.sum(mask4)]
+        if penalty_1.shape[0] > 0 and penalty_1.shape[1] > 0:
+            output -= penalty_1[0,0]
+        if penalty_2.shape[0] > 0 and penalty_2.shape[1] > 0:
+            output -= penalty_2[0,0]
+        if penalty_3.shape[0] > 0 and penalty_3.shape[1] > 0:
+            output -= penalty_3[0,0]
+        if penalty_4.shape[0] > 0 and penalty_4.shape[1] > 0:
+            output -= penalty_4[0,0]
+        return (output,)
+    # 4.2. Initialize individuals and operations
+    creator.create("RevenuePenalty", base.Fitness, weights=(1.,))
+    creator.create("Individual", np.ndarray, fitness=creator.RevenuePenalty)
+    toolbox = base.Toolbox()
+    def get_individual(num_item, price_std, price_mean):
+        return creator.Individual(np.random.standard_normal(num_item)*price_std*2 + price_mean)
+    toolbox.register("individual", get_individual, num_item, np.array(prices_std_list), np.array(prices_mean_list))
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
+    toolbox.register("evaluate", evalObjective)
+    toolbox.register("mate", cxTwoPointCopy)
+    toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
+    toolbox.register("select", tools.selTournament, tournsize=3)
+    # 4.3. Run the algoritm
+    random.seed(64)
+    pop = toolbox.population(n=population)
+    pop.append(creator.Individual(val_ind1.round(2).flatten()))
+    pop.append(creator.Individual(val_ind2.round(2).flatten()))
+    print('fitess of ind1: ',evalObjective(val_ind1.round(2).flatten()))
+    print('fitess of ind2: ',evalObjective(val_ind2.round(2).flatten()))
+#     hof = tools.ParetoFront(similar=np.array_equal)
+    hof = tools.HallOfFame(2, similar=np.array_equal)
+    stats = tools.Statistics(lambda ind: ind.fitness.values)
+    stats.register("avg", np.mean)
+    stats.register("std", np.std)
+    stats.register("min", np.min)
+    stats.register("max", np.max)
+    print('GA started running...')
+    algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=generation, stats=stats,
+                        halloffame=hof)
+    return pop, stats, hof, evalObjective(hof[0], report=True)
 
-#         df = pd.DataFrame(prices, columns=self.price_names)
-#         quantities = np.zeros((self.population, len(self.models)))
-#         for i in range(len(self.models)):
-#             quantities[:, i] = self.models[i].predict(df)
-#         fitness = np.zeros((self.population))
-#         for i in range(len(self.models)):
-#             fitness += prices[:, i] * quantities[:, i]
-
-#         return fitness
-
-#     # run generations of GA
-#     def evaluation(self):
-
-#         # loop through parents and calculate fitness
-#         best_pop = self.population // 2
-#         ft = self.fitness(np.asarray(self.parents))
-#         for i in range(len(self.parents)):
-#             parent = self.parents[i]
-#             self.bests.append((ft[i], parent))
-
-#         # sort the fitness list by fitness
-#         self.bests.sort(key=operator.itemgetter(0), reverse=True)
-#         self.best_p = self.bests[:best_pop]
-#         highest_fitness = self.best_p[0][0]
-#         highest_price = self.best_p[0][1]
-#         self.best_p = [x[1] for x in self.best_p]
-
-#         return highest_fitness, highest_price
-
-#     # mutate children after certain condition
-#     def mutation(self, ch):
-
-#         for i in range(len(ch)):
-#             if random.uniform(0, 1) > 0.95:
-#                 ch[i] = np.random.standard_normal(
-#                     1)[0] * self.price_std[i] * 2 + self.price_mean[i]
-#         return ch
-
-#     # crossover two parents to produce two children by miixing them under random ration each time
-#     def crossover(self, ch1, ch2):
-
-#         threshold = random.randint(1, len(ch1) - 1)
-#         tmp1 = ch1[threshold:]
-#         tmp2 = ch2[threshold:]
-#         ch1 = ch1[:threshold]
-#         ch2 = ch2[:threshold]
-#         ch1.extend(tmp2)
-#         ch2.extend(tmp1)
-
-#         return ch1, ch2
-
-#     # run the GA algorithm
-#     def run(self):
-#         if self.epoch < self.iterated:
-#             return self.best_price
-#         # run the evaluation once
-#         highest_fitness, highest_price = self.evaluation()
-#         newparents = []
-#         pop = len(self.best_p)
-
-#         # print("{}th generation" .format(self.iterated))
-#         # print("best solution so far: {}".format(highest_fitness))
-#         self.best_price = highest_price
-
-#         # randomly shuffle the best parents
-#         random.shuffle(self.best_p)
-#         for i in range(0, pop):
-#             if i < pop - 1:
-#                 r1 = self.best_p[i]
-#                 r2 = self.best_p[i + 1]
-#                 nchild1, nchild2 = self.crossover(r1, r2)
-#                 newparents.append(nchild1)
-#                 newparents.append(nchild2)
-#             else:
-#                 r1 = self.best_p[i]
-#                 r2 = self.best_p[0]
-#                 nchild1, nchild2 = self.crossover(r1, r2)
-#                 newparents.append(nchild1)
-#                 newparents.append(nchild2)
-
-#         # mutate the new children and potential parents to ensure global optima found
-#         for i in range(len(newparents)):
-#             newparents[i] = self.mutation(newparents[i])
-
-#         self.parents = newparents
-#         self.bests = []
-#         self.best_p = []
-#         self.iterated += 1
-#         return self.run()
+# ====================================================
 
 
 class rms_pricing_model():

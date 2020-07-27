@@ -1,6 +1,6 @@
 from flask import Flask, request, redirect, url_for, flash, jsonify
 from helper_functions import optimize_floats, optimize_memory, get_top_features
-from core_functions import rms_pricing_model, list_to_matrix, solve_cvx
+from core_functions import rms_pricing_model, list_to_matrix, solve_cvx, GeneticAlgorithm
 import numpy as np
 import pickle as p
 
@@ -563,6 +563,93 @@ def detect_conflict():
     else:
         return jsonify({'conflict':'No conflict'})
 
+
+
+@app.route('/optimize/', methods=['POST'])
+def optimize():
+    
+    # get input
+    project_id = request.get_json()['project_id']
+    constraints = request.get_json()['constraints']
+    population =  request.get_json()['population']
+    max_epoch = request.get_json()['max_epoch']
+
+    app.logger.info(f'OPTIMIZE REQUEST RECEIVED PROJ {project_id}')
+
+    price_info_path = HOME + f'/projects/{project_id}/price_info.pkl'
+    model_path = HOME + f'/projects/{project_id}/models/'
+    
+    # load price information
+    assert os.path.isfile(price_info_path), 'No price info file found.'
+    price_std, price_mean, price_names = p.load(open(price_info_path, 'rb'))
+    product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_names)}
+    
+    # load model
+    assert os.path.isdir(model_path), 'No model directory found.'
+    onlyfiles = [f for f in os.listdir(model_path) if os.path.isfile(os.path.join(model_path, f))]
+    onlyfiles = [f for f in onlyfiles if f.startswith('model_')]
+    regressors = {}
+
+    for file in onlyfiles:
+        name = file.strip().split('.')[0].split('_')[1]
+        regressors[name] = p.load(open(model_path + file, 'rb'))
+    # run optimization
+    result = GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors, population, max_epoch)
+                        # costs=None, penalty_hard_constant=1000000, penalty_soft_constant=100000, step=0.05, 
+                        # random_seed=1
+    if result:
+        pop, stats, hof, report = result
+    
+    # Send result as Dict to avoid confusion
+        response_outp = {}
+        response_outp['result'] = np.array(hof[0]).tolist()
+        response_outp['report'] = [float(i) for i in report]
+        response_outp['report_info'] = ['estimated revenue of the optimized price', 
+                                       'number of hard constraints (including price ranges) violated',
+                                       'number of soft constraints (preferences) violated']
+        response_outp['price_cols'] = price_names
+        
+        # Log Results
+        opti_results_path = HOME + f'/projects/{project_id}/optimize_results.json'
+        with open(opti_results_path, 'w') as outfile:
+            json.dump(response_outp, outfile)
+
+        return jsonify(response_outp)
+
+    else:
+        # better raise error here
+        app.logger.info(f'OPTIMIZE REQUEST FAILED PROJ {project_id}')
+        return None
+
+@app.route('/get_opti_results/', methods=['POST'])
+def get_opti_results():
+    '''This function attempts to locate and return all
+    completed cv results for a given project_id.
+    '''
+
+    # Get request details
+    project_id = request.get_json()['project_id']
+    
+    # Attempt to locate and load in project from project_id
+    proj_path = HOME + f'/projects/{project_id}/'
+    try:
+
+        with open(proj_path + 'proj_properties.json') as json_file:
+            proj_properties = json.load(json_file)
+        project_items = set(proj_properties['items'])
+
+    except:
+        return jsonify({'error': 'project not found'})
+
+    # Attempt to locate and load in cv results
+    proj_dir = os.listdir(proj_path)
+    if 'optimize_results.json' in proj_dir:
+        with open(proj_path + 'optimize_results.json') as json_file:
+            opti_results = json.load(json_file)
+        return jsonify(opti_results)
+
+    else:
+        return jsonify({'status': 'incomplete'})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
