@@ -70,9 +70,11 @@ def optimize():
                         # random_seed=1
     if result:
         pop, stats, hof, report = result
+        f = lambda x: 0.05 * np.round(x/0.05)
+        best_ind = f(hof[0])
     # Send result as Dict to avoid confusion
         response_outp = {}
-        response_outp['result'] = np.array(hof[0]).tolist()
+        response_outp['result'] = np.array(best_ind).tolist()
         response_outp['report'] = [float(i) for i in report]
         response_outp['report_info'] = ['estimated revenue of the optimized price', 
                                        'number of hard constraints (including price ranges) violated',
