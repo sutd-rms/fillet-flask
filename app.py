@@ -657,16 +657,22 @@ def optimize():
     result = GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors, population, max_epoch)
                         # costs=None, penalty_hard_constant=1000000, penalty_soft_constant=100000, step=0.05, 
                         # random_seed=1
-    if result:
-        pop, stats, hof, report = result
+    if result[0] == True:
+        _, pop, stats, hof, report = result
         f = lambda x: 0.05 * np.round(x/0.05)
-        best_ind = f(hof[0])
+        best_ind = f(hof[0]).round(2)
     
     # Send result as Dict to avoid confusion
         response_outp = {}
         response_outp['result'] = np.array(best_ind).tolist()
         response_outp['report'] = [float(i) for i in report]
-        response_outp['report_info'] = ['estimated revenue of the optimized price', 
+        if len(report) == 3:
+            response_outp['report_info'] = ['estimated revenue of the optimized price', 
+                                       'number of hard constraints (including price ranges) violated',
+                                       'number of soft constraints (preferences) violated']
+        elif len(report) == 4:
+            response_outp['report_info'] = ['estimated profit of the optimized price', 
+                                            'estimated revenue of the optimized price', 
                                        'number of hard constraints (including price ranges) violated',
                                        'number of soft constraints (preferences) violated']
         response_outp['price_cols'] = price_names
@@ -682,7 +688,13 @@ def optimize():
     else:
         # better raise error here
         app.logger.info(f'OPTIMIZE REQUEST FAILED PROJ {project_id}')
-        return None
+        if result[1] == 0:
+            response_outp = {'result': 'Error: hard constraints and price ranges do not have a feasible region.'}
+        elif result[1] == 1:
+            response_outp = {'result': 'Error: cost list is empty for profit calculation.'}
+        elif result[1] == 2:
+            response_outp = {'result': 'Error: cost is missing for items {} for profit calculation.'.format(result[2])}
+    return jsonify(response_outp)
 
 @app.route('/get_opti_results/', methods=['POST'])
 def get_opti_results():
