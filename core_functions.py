@@ -121,7 +121,24 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     # 1. Preprocess rules and price limits
     num_item = len(price_columns)
     product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_columns)}
-    rule_list_old, price_range = rules
+    rule_list_old, price_range, costs, revenue_obj = rules
+    costs_dic = {}
+    for item in costs:
+        costs_dic[item['item_id']] = item['cost']
+    if revenue_obj == False:
+        if len(costs) == 0 :
+            return False, 1
+#         cost_products = list(set(costs_dic.keys()))
+#         cost_products = set([str(p) for p in cost_products])
+#         if not set(product_to_idx.keys()).issubset(cost_products):
+#             return 2
+        missing_c = []
+        for p in price_columns:
+            prod = p.split('_')[1]
+            if int(prod) not in costs_dic:
+                missing_c.append(prod)
+        if len(missing_c) != 0:
+            return False, 2, missing_c
     rule_list = [rule for rule in rule_list_old if set(rule['products']).issubset(set(product_to_idx.keys()))] # filter out the ones not in price_columns
     print('{} out of {} rules contain products not in price_columns.'.format(len(rule_list_old)-len(rule_list), len(rule_list_old)))
     hard_rule_eq_list = [i for i in rule_list if (i['penalty'] == -1 and i['equality'] == 0)]
@@ -181,7 +198,8 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     print('status 2: {}'.format(status2))
     print('val_ind1 shape: {}'.format(val_ind1.shape))
     print('val_ind2 shape: {}'.format(val_ind2.shape))
-    assert status1 != 'infeasible' and status2 != 'infeasible', 'Hard constraints must have feasible region.'
+    if status1 == 'infeasible' or status2 == 'infeasible':
+        return False, 0 # an integer code for hard constraint infeasibility
     # 3. Put soft constraints into matrix form
     # 3.1. soft equality
     matrix3, shifts3, penalty3 = list_to_matrix(soft_rule_eq_list, product_to_idx, penalty_soft_constant)
@@ -214,7 +232,14 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
             X = X.reindex(sorted(X.columns), axis=1)
             quantity[product_to_idx[code]] = regressors[code].predict(X)
         # Calculating constraint violation penalty
-        output = individual.dot(quantity)
+        if revenue_obj == False: # True for revenue, False for profit
+            costs_list = [costs_dic[int(product.split('_')[1])] for product in price_columns]
+            costs_np = np.array(costs_list)
+            output = (individual-costs_np).dot(quantity)
+            if report:
+                output_rev = individual.dot(quantity)
+        else:
+            output = individual.dot(quantity)
         temp1 = (matrix1.dot(individual.reshape(-1, 1)) - shifts1).round(2)
         mask1 = temp1 != 0
         penalty_1 = mask1.T.dot(penalty1)
@@ -228,7 +253,10 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
         mask4 = temp4 < 0
         penalty_4 = mask4.T.dot(penalty4)
         if report:
-            return [output, np.sum(mask1)+np.sum(mask2), np.sum(mask3)+np.sum(mask4)]
+            if revenue_obj == False:
+                return [output, output_rev, np.sum(mask1)+np.sum(mask2), np.sum(mask3)+np.sum(mask4)]
+            else:
+                return [output, np.sum(mask1)+np.sum(mask2), np.sum(mask3)+np.sum(mask4)]
         if penalty_1.shape[0] > 0 and penalty_1.shape[1] > 0:
             output -= penalty_1[0,0]
         if penalty_2.shape[0] > 0 and penalty_2.shape[1] > 0:
@@ -267,7 +295,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     print('GA started running...')
     algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=generation, stats=stats,
                         halloffame=hof)
-    return pop, stats, hof, evalObjective(hof[0], report=True)
+    return True, pop, stats, hof, evalObjective(hof[0], report=True)
 
 
 class rms_pricing_model():
