@@ -710,7 +710,7 @@ def get_opti_results():
     # Attempt to locate and load in cv results
     opti_dir = os.listdir(opti_path)
     if 'optimize_results.json' in opti_dir:
-        with open(proj_path + 'optimize_results.json') as json_file:
+        with open(opti_path + 'optimize_results.json') as json_file:
             opti_results = json.load(json_file)
         return jsonify(opti_results)
 
