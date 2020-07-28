@@ -624,6 +624,7 @@ def optimize():
     
     # get input
     project_id = request.get_json()['project_id']
+    opti_id = request.get_json()['optimisation_id']
     constraints = request.get_json()['constraints']
     population =  request.get_json()['population']
     max_epoch = request.get_json()['max_epoch']
@@ -632,6 +633,10 @@ def optimize():
 
     price_info_path = HOME + f'/projects/{project_id}/price_info.pkl'
     model_path = HOME + f'/projects/{project_id}/models/'
+    opti_path = HOME + f'/projects/{project_id}/{opti_id}/'
+
+    if not os.path.isdir(opti_path):
+        Path(opti_path).mkdir(parents=True)
     
     # load price information
     assert os.path.isfile(price_info_path), 'No price info file found.'
@@ -667,7 +672,8 @@ def optimize():
         response_outp['price_cols'] = price_names
         
         # Log Results
-        opti_results_path = HOME + f'/projects/{project_id}/optimize_results.json'
+
+        opti_results_path = opti_path + 'optimize_results.json'
         with open(opti_results_path, 'w') as outfile:
             json.dump(response_outp, outfile)
 
@@ -686,6 +692,7 @@ def get_opti_results():
 
     # Get request details
     project_id = request.get_json()['project_id']
+    opti_id = request.get_json()['optimisation_id']
     
     # Attempt to locate and load in project from project_id
     proj_path = HOME + f'/projects/{project_id}/'
@@ -698,9 +705,11 @@ def get_opti_results():
     except:
         return jsonify({'error': 'project not found'})
 
+    opti_path = proj_path+f'{opti_id}/'
+
     # Attempt to locate and load in cv results
-    proj_dir = os.listdir(proj_path)
-    if 'optimize_results.json' in proj_dir:
+    opti_dir = os.listdir(opti_path)
+    if 'optimize_results.json' in opti_dir:
         with open(proj_path + 'optimize_results.json') as json_file:
             opti_results = json.load(json_file)
         return jsonify(opti_results)
