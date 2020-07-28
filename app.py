@@ -69,9 +69,9 @@ def optimize():
                         # costs=None, penalty_hard_constant=1000000, penalty_soft_constant=100000, step=0.05, 
                         # random_seed=1
     if result[0] == True:
-        pop, stats, hof, report = result
+        _, pop, stats, hof, report = result
         f = lambda x: 0.05 * np.round(x/0.05)
-        best_ind = f(hof[0])
+        best_ind = f(hof[0]).round(2)
     # Send result as Dict to avoid confusion
         response_outp = {}
         response_outp['result'] = np.array(best_ind).tolist()

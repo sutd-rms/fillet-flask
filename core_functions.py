@@ -227,6 +227,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
         quantity = np.zeros((num_item))
         f = lambda x: 0.05 * np.round(x/0.05)
         individual = f(individual)
+        individual = individual.round(2)
         for code in regressors: # TODO: use multiple workers here to speedup the optimization process
             X = pd.DataFrame(individual.reshape(1, -1), columns=price_columns)
             X = X.reindex(sorted(X.columns), axis=1)
