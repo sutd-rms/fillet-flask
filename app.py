@@ -708,7 +708,11 @@ def get_opti_results():
     opti_path = proj_path+f'{opti_id}/'
 
     # Attempt to locate and load in cv results
-    opti_dir = os.listdir(opti_path)
+    try:
+        opti_dir = os.listdir(opti_path)
+    except:
+        return jsonify({'error': 'optimization_id not found'})
+    
     if 'optimize_results.json' in opti_dir:
         with open(opti_path + 'optimize_results.json') as json_file:
             opti_results = json.load(json_file)
