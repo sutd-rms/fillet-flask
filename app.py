@@ -561,7 +561,7 @@ def detect_conflict():
     constraints = request.get_json()['constraints']
     rule_list = constraints[0]
     hard_rule_list = [i for i in rule_list if i['penalty'] == -1]
-    if len(hard_rule_list) == 0:
+    if len(hard_rule_list) == 0 and len(constraints[1]) == 0:
         return jsonify({'conflict':'No conflict.'})
     hard_rule_eq_list = [i for i in hard_rule_list if i['equality'] == 0]
     hard_rule_small_list = [i for i in hard_rule_list if i['equality'] == 1]
@@ -572,7 +572,10 @@ def detect_conflict():
     price_range_dic = {}
     for item in price_range:
         price_range_dic[item['item_id']] = [item['max'], item['min']]
-    product_list = list(set(list(itertools.chain.from_iterable([rule['products'] for rule in hard_rule_list]))))
+    product_list_hard_rule = list(set(list(itertools.chain.from_iterable([rule['products'] for rule in hard_rule_list]))))
+    product_list_price_range = list(price_range_dic.keys())
+    product_list_price_range = [str(i) for i in product_list_price_range]
+    product_list = list(set(product_list_hard_rule + product_list_price_range))
     product_to_idx = {column: i for i, column in enumerate(product_list)}
     # 2. Find valid price vectors to start
     # 2.1. put hard equalities into matrix form
@@ -580,30 +583,32 @@ def detect_conflict():
     # 2.2. put hard inequalities into matrix form
     matrix2_1, shifts2_1, _ = list_to_matrix(hard_rule_small_list, product_to_idx, 10)
     matrix2_1 = matrix2_1*(-1)
-    shifts2_1 = shifts2_1*(-1)+0.0001
+    shifts2_1 = shifts2_1*(-1)+0.05
     matrix2_2, shifts2_2, _ = list_to_matrix(hard_rule_large_list, product_to_idx, 10)
-    shifts2_2 = shifts2_2+0.0001
+    shifts2_2 = shifts2_2+0.05
     matrix2_3, shifts2_3, _ = list_to_matrix(hard_rule_smalleq_list, product_to_idx, 10)
     matrix2_3 = matrix2_3*(-1)
     shifts2_3 = shifts2_3*(-1)
     matrix2_4, shifts2_4, _ = list_to_matrix(hard_rule_largeeq_list, product_to_idx, 10)
     # 2.2.2. adding price ranges
     prices = product_list
+    default_cap = 7.3 + 3.5 # mean + std
+    default_floor = 7.3 - 3.5 # mean - std
     # 2.2.2.1 adding price floor
     matrix2_5 = np.zeros((2*len(prices), len(prices)))
     shifts2_5 = np.zeros((2*len(prices), 1))
     for i, product in enumerate(prices):
         matrix2_5[i, i] = 1.
         if int(product) not in price_range_dic.keys():
-            print('product {} is not given price range, assumed to be within [0.5, 20].'.format(product))
-            shifts2_5[i,0] = 0.5
+            print('product {} is not given price range, assumed to be within [{}, {}].'.format(product, default_floor, default_cap))
+            shifts2_5[i,0] = default_floor
         else:
             shifts2_5[i,0] = price_range_dic[int(product)][1]
     # 2.2.2.1 adding price cap
     for i, product in enumerate(prices):
         matrix2_5[len(prices)+i, i] = -1.
         if int(product) not in price_range_dic.keys():
-            shifts2_5[len(prices)+i,0] = -20.
+            shifts2_5[len(prices)+i,0] = -default_cap
         else:
             shifts2_5[len(prices)+i,0] = -price_range_dic[int(product)][0]
     # 2.2.3. Put together hard inequality and price range
@@ -621,79 +626,60 @@ def detect_conflict():
 
 @app.route('/optimize/', methods=['POST'])
 def optimize():
-    
+    app.logger.info('OPTIMIZE REQUEST RECEIVED')
     # get input
     project_id = request.get_json()['project_id']
-    opti_id = request.get_json()['optimisation_id']
     constraints = request.get_json()['constraints']
     population =  request.get_json()['population']
     max_epoch = request.get_json()['max_epoch']
-
-    app.logger.info(f'OPTIMIZE REQUEST RECEIVED PROJ {project_id}')
-
-    price_info_path = HOME + f'/projects/{project_id}/price_info.pkl'
-    model_path = HOME + f'/projects/{project_id}/models/'
-    opti_path = HOME + f'/projects/{project_id}/{opti_id}/'
-
-    if not os.path.isdir(opti_path):
-        Path(opti_path).mkdir(parents=True)
-    
+    price_info_path = 'projects/{}/price_info.pkl'.format(project_id)
+    model_path = 'projects/{}/models/'.format(project_id)
     # load price information
     assert os.path.isfile(price_info_path), 'No price info file found.'
     price_std, price_mean, price_names = p.load(open(price_info_path, 'rb'))
     product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_names)}
-    
     # load model
     assert os.path.isdir(model_path), 'No model directory found.'
-    onlyfiles = [f for f in os.listdir(model_path) if os.path.isfile(os.path.join(model_path, f))]
+    onlyfiles = [f for f in listdir(model_path) if isfile(join(model_path, f))]
     onlyfiles = [f for f in onlyfiles if f.startswith('model_')]
     regressors = {}
-
     for file in onlyfiles:
         name = file.strip().split('.')[0].split('_')[1]
         regressors[name] = p.load(open(model_path + file, 'rb'))
     # run optimization
-    app.logger.info(f'RUNNING OPTIMIZATION PROJ {project_id}')
     result = GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors, population, max_epoch)
                         # costs=None, penalty_hard_constant=1000000, penalty_soft_constant=100000, step=0.05, 
                         # random_seed=1
+    response_outp = {}
     if result[0] == True:
         _, pop, stats, hof, report = result
         f = lambda x: 0.05 * np.round(x/0.05)
         best_ind = f(hof[0]).round(2)
-    
     # Send result as Dict to avoid confusion
-        response_outp = {}
+        response_outp['success'] = True
         response_outp['result'] = np.array(best_ind).tolist()
         response_outp['report'] = [float(i) for i in report]
-        if len(report) == 3:
-            response_outp['report_info'] = ['estimated revenue of the optimized price', 
-                                       'number of hard constraints (including price ranges) violated',
-                                       'number of soft constraints (preferences) violated']
-        elif len(report) == 4:
-            response_outp['report_info'] = ['estimated profit of the optimized price', 
-                                            'estimated revenue of the optimized price', 
+        response_outp['report_info'] = ['estimated profit of the optimized price', # is None if cost is not provided completely for the products
+                                        'estimated revenue of the optimized price', 
                                        'number of hard constraints (including price ranges) violated',
                                        'number of soft constraints (preferences) violated']
         response_outp['price_cols'] = price_names
-        
-        # Log Results
-
-        opti_results_path = opti_path + 'optimize_results.json'
-        with open(opti_results_path, 'w') as outfile:
-            json.dump(response_outp, outfile)
-
-        return jsonify(response_outp)
-
     else:
-        # better raise error here
-        app.logger.info(f'OPTIMIZE REQUEST FAILED PROJ {project_id}')
         if result[1] == 0:
-            response_outp = {'result': 'Error: hard constraints and price ranges do not have a feasible region.'}
+            response_outp = {
+                'success': False,
+                'type': 0,
+                'info':'Error: hard constraints and price ranges do not have a feasible region.'}
         elif result[1] == 1:
-            response_outp = {'result': 'Error: cost list is empty for profit calculation.'}
+            response_outp = {
+                'success': False,
+                'type': 1,
+                'info': 'Error: cost list is empty for profit calculation.'}
         elif result[1] == 2:
-            response_outp = {'result': 'Error: cost is missing for items {} for profit calculation.'.format(result[2])}
+            response_outp = {
+                'success': False,
+                'type': 2,
+                'info': 'Error: cost is missing for items {} for profit calculation.'.format(result[2])}
     return jsonify(response_outp)
 
 @app.route('/get_opti_results/', methods=['POST'])

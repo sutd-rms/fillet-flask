@@ -75,16 +75,6 @@ def cxTwoPointCopy(ind1, ind2):
     """Execute a two points crossover with copy on the input individuals. The
     copy is required because the slicing in numpy returns a view of the data,
     which leads to a self overwritting in the swap operation. It prevents
-    ::
-    
-        >>> import numpy
-        >>> a = numpy.array((1,2,3,4))
-        >>> b = numpy.array((5,6,7,8))
-        >>> a[1:3], b[1:3] = b[1:3], a[1:3]
-        >>> print(a)
-        [1 6 7 4]
-        >>> print(b)
-        [5 6 7 8]
     """
     size = len(ind1)
     cxpoint1 = random.randint(1, size)
@@ -119,12 +109,9 @@ def list_to_matrix(rules, product_to_idx, penalty):
             penalty1[k,0] = rules[k]['penalty']*penalty # e.g. 4 * 10000
     return matrix1, shifts1, penalty1
 
-# ====================================================
-
 def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, regressors, population, generation, 
                         costs=None, penalty_hard_constant=1000000, penalty_soft_constant=1000, step=0.05, 
                         random_seed=1):
-    log.info('SETTING UP GA ENVIRONMENT')
     # 1. Preprocess rules and price limits
     num_item = len(price_columns)
     product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_columns)}
@@ -132,18 +119,14 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     costs_dic = {}
     for item in costs:
         costs_dic[item['item_id']] = item['cost']
+    missing_c = []
+    for p in price_columns:
+        prod = p.split('_')[1]
+        if int(prod) not in costs_dic:
+            missing_c.append(prod)
     if revenue_obj == False:
         if len(costs) == 0 :
             return False, 1
-#         cost_products = list(set(costs_dic.keys()))
-#         cost_products = set([str(p) for p in cost_products])
-#         if not set(product_to_idx.keys()).issubset(cost_products):
-#             return 2
-        missing_c = []
-        for p in price_columns:
-            prod = p.split('_')[1]
-            if int(prod) not in costs_dic:
-                missing_c.append(prod)
         if len(missing_c) != 0:
             return False, 2, missing_c
     rule_list = [rule for rule in rule_list_old if set(rule['products']).issubset(set(product_to_idx.keys()))] # filter out the ones not in price_columns
@@ -167,9 +150,9 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     # 2.2. put hard inequalities into matrix form
     matrix2_1, shifts2_1, penalty2_1 = list_to_matrix(hard_rule_small_list, product_to_idx, penalty_hard_constant)
     matrix2_1 = matrix2_1*(-1)
-    shifts2_1 = shifts2_1*(-1)+0.0001
+    shifts2_1 = shifts2_1*(-1)+0.05
     matrix2_2, shifts2_2, penalty2_2 = list_to_matrix(hard_rule_large_list, product_to_idx, penalty_hard_constant)
-    shifts2_2 = shifts2_2+0.0001
+    shifts2_2 = shifts2_2+0.05
     matrix2_3, shifts2_3, penalty2_3 = list_to_matrix(hard_rule_smalleq_list, product_to_idx, penalty_hard_constant)
     matrix2_3 = matrix2_3*(-1)
     shifts2_3 = shifts2_3*(-1)
@@ -179,18 +162,20 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     # 2.2.2.1 adding price floor
     matrix2_5 = np.zeros((2*len(prices), len(prices)))
     shifts2_5 = np.zeros((2*len(prices), 1))
+    default_cap = 7.3 + 3.5 # mean + std
+    default_floor = 7.3 - 3.5 # mean - std
     for i, product in enumerate(prices):
         matrix2_5[i, i] = 1.
         if int(product) not in price_range_dic.keys():
-            print('product {} is not given price range, assumed to be within [0.5, 20].'.format(product))
-            shifts2_5[i,0] = 0.5
+            print('product {} is not given price range, assumed to be within [{}, {}].'.format(product, default_floor, default_cap))
+            shifts2_5[i,0] = default_floor
         else:
             shifts2_5[i,0] = price_range_dic[int(product)][1]
     # 2.2.2.1 adding price cap
     for i, product in enumerate(prices):
         matrix2_5[len(prices)+i, i] = -1.
         if int(product) not in price_range_dic.keys():
-            shifts2_5[len(prices)+i,0] = -20.
+            shifts2_5[len(prices)+i,0] = -default_cap
         else:
             shifts2_5[len(prices)+i,0] = -price_range_dic[int(product)][0]
     penalty2_5 = np.full((matrix2_5.shape[0],1), penalty_hard_constant)
@@ -203,10 +188,10 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     val_ind2, status2 = solve_cvx(matrix1, shifts1, matrix2, shifts2, 'sum_squares')
     print('status 1: {}'.format(status1))
     print('status 2: {}'.format(status2))
-    print('val_ind1 shape: {}'.format(val_ind1.shape))
-    print('val_ind2 shape: {}'.format(val_ind2.shape))
     if status1 == 'infeasible' or status2 == 'infeasible':
         return False, 0 # an integer code for hard constraint infeasibility
+    print('val_ind1 shape: {}'.format(val_ind1.shape))
+    print('val_ind2 shape: {}'.format(val_ind2.shape))
     # 3. Put soft constraints into matrix form
     # 3.1. soft equality
     matrix3, shifts3, penalty3 = list_to_matrix(soft_rule_eq_list, product_to_idx, penalty_soft_constant)
@@ -224,45 +209,21 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     shifts4 = np.vstack([shifts4_1, shifts4_2, shifts4_3, shifts4_4])
     penalty4 = np.vstack([penalty4_1, penalty4_2, penalty4_3, penalty4_4])
     # 4. Run GA using DEAP library
-    log.info('SETTING UP GA RULESET')
     # 4.1. Define fitness function
     def evalObjective(individual, report=False):
         """
         returns:
         (revenue, penalty_): revenue of this individual and penalty from it violating the constraints
         """
-        # # Calculating revenue
-        # quantity = np.zeros((num_item))
-        # individual = individual.round(2)
-        # for code in regressors: # TODO: use multiple workers here to speedup the optimization process
-        #     X = pd.DataFrame(individual.reshape(1, -1), columns=price_columns)
-        #     X = X.reindex(sorted(X.columns), axis=1)
-        #     quantity[product_to_idx[code]] = regressors[code].predict(X)
-
-        # MULTITHREADED PREDICT
-        pred_dict = {}
+        # Calculating revenue
         quantity = np.zeros((num_item))
         f = lambda x: 0.05 * np.round(x/0.05)
         individual = f(individual)
         individual = individual.round(2)
-
-        def opti_predict(code, individual):
+        for code in regressors: # TODO: use multiple workers here to speedup the optimization process
             X = pd.DataFrame(individual.reshape(1, -1), columns=price_columns)
             X = X.reindex(sorted(X.columns), axis=1)
-            pred_dict[code] = regressors[code].predict(X)
-
-        opti_processes = []
-        opti_results_ls = []
-        with ThreadPoolExecutor(max_workers=20) as executor:
-            for code in regressors:
-                opti_processes.append(executor.submit(opti_predict, code, individual))
-        for task in as_completed(opti_processes):
-            opti_results_ls.append(task.result())
-
-        for code in regressors:
-            quantity[product_to_idx[code]] = pred_dict[code]
-
-
+            quantity[product_to_idx[code]] = regressors[code].predict(X)
         # Calculating constraint violation penalty
         if revenue_obj == False: # True for revenue, False for profit
             costs_list = [costs_dic[int(product.split('_')[1])] for product in price_columns]
@@ -272,6 +233,11 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
                 output_rev = individual.dot(quantity)
         else:
             output = individual.dot(quantity)
+            if report:
+                if len(missing_c) == 0:
+                    output_prof = (individual-costs_np).dot(quantity)
+                else:
+                    output_prof = None
         temp1 = (matrix1.dot(individual.reshape(-1, 1)) - shifts1).round(2)
         mask1 = temp1 != 0
         penalty_1 = mask1.T.dot(penalty1)
@@ -288,7 +254,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
             if revenue_obj == False:
                 return [output, output_rev, np.sum(mask1)+np.sum(mask2), np.sum(mask3)+np.sum(mask4)]
             else:
-                return [output, np.sum(mask1)+np.sum(mask2), np.sum(mask3)+np.sum(mask4)]
+                return [output_prof, output, np.sum(mask1)+np.sum(mask2), np.sum(mask3)+np.sum(mask4)]
         if penalty_1.shape[0] > 0 and penalty_1.shape[1] > 0:
             output -= penalty_1[0,0]
         if penalty_2.shape[0] > 0 and penalty_2.shape[1] > 0:
@@ -299,7 +265,6 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
             output -= penalty_4[0,0]
         return (output,)
     # 4.2. Initialize individuals and operations
-    log.info('INITIALIZING INDIVIDUALS...')
     creator.create("RevenuePenalty", base.Fitness, weights=(1.,))
     creator.create("Individual", np.ndarray, fitness=creator.RevenuePenalty)
     toolbox = base.Toolbox()
@@ -312,7 +277,6 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
     toolbox.register("select", tools.selTournament, tournsize=3)
     # 4.3. Run the algoritm
-    log.info('RUNNING GA...')
     random.seed(64)
     pop = toolbox.population(n=population)
     pop.append(creator.Individual(val_ind1.round(2).flatten()))
@@ -329,10 +293,8 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     print('GA started running...')
     algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=generation, stats=stats,
                         halloffame=hof)
-    log.info('GA COMPLETED.')
     return True, pop, stats, hof, evalObjective(hof[0], report=True)
 
-# ====================================================
 
 
 class rms_pricing_model():
