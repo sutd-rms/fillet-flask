@@ -723,7 +723,7 @@ def get_opti_results():
     try:
         opti_dir = os.listdir(opti_path)
     except:
-        return jsonify({'error': 'optimization_id not found'})
+        return jsonify({'error': 'optimisation_id not found'})
     
     if 'optimize_results.json' in opti_dir:
         with open(opti_path + 'optimize_results.json') as json_file:
