@@ -128,10 +128,6 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     if revenue_obj == False:
         if len(costs) == 0 :
             return False, 1
-#         cost_products = list(set(costs_dic.keys()))
-#         cost_products = set([str(p) for p in cost_products])
-#         if not set(product_to_idx.keys()).issubset(cost_products):
-#             return 2
         missing_c = []
         for p in price_columns:
             prod = p.split('_')[1]
@@ -196,10 +192,10 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     val_ind2, status2 = solve_cvx(matrix1, shifts1, matrix2, shifts2, 'sum_squares')
     print('status 1: {}'.format(status1))
     print('status 2: {}'.format(status2))
-    print('val_ind1 shape: {}'.format(val_ind1.shape))
-    print('val_ind2 shape: {}'.format(val_ind2.shape))
     if status1 == 'infeasible' or status2 == 'infeasible':
         return False, 0 # an integer code for hard constraint infeasibility
+    print('val_ind1 shape: {}'.format(val_ind1.shape))
+    print('val_ind2 shape: {}'.format(val_ind2.shape))
     # 3. Put soft constraints into matrix form
     # 3.1. soft equality
     matrix3, shifts3, penalty3 = list_to_matrix(soft_rule_eq_list, product_to_idx, penalty_soft_constant)

@@ -481,7 +481,7 @@ def detect_conflict():
     constraints = request.get_json()['constraints']
     rule_list = constraints[0]
     hard_rule_list = [i for i in rule_list if i['penalty'] == -1]
-    if len(hard_rule_list) == 0:
+    if len(hard_rule_list) == 0 and len(constraints[1]) == 0:
         return jsonify({'conflict':'No conflict.'})
     hard_rule_eq_list = [i for i in hard_rule_list if i['equality'] == 0]
     hard_rule_small_list = [i for i in hard_rule_list if i['equality'] == 1]
@@ -529,6 +529,7 @@ def detect_conflict():
     # 2.2.3. Put together hard inequality and price range
     matrix2 = np.vstack([matrix2_1, matrix2_2, matrix2_3, matrix2_4, matrix2_5])
     shifts2 = np.vstack([shifts2_1, shifts2_2, shifts2_3, shifts2_4, shifts2_5])
+    print(matrix1.shape, matrix2.shape)
     # 2.3. get 2 valid individuals from linear programming
     val_ind2, status2 = solve_cvx(matrix1, shifts1, matrix2, shifts2, 'sum_squares')
     # return the result
