@@ -640,7 +640,7 @@ def optimize():
     product_to_idx = {column.split('_')[1]: i for i, column in enumerate(price_names)}
     # load model
     assert os.path.isdir(model_path), 'No model directory found.'
-    onlyfiles = [f for f in listdir(model_path) if isfile(join(model_path, f))]
+    onlyfiles = [f for f in os.listdir(model_path) if os.path.isfile(os.path.join(model_path, f))]
     onlyfiles = [f for f in onlyfiles if f.startswith('model_')]
     regressors = {}
     for file in onlyfiles:
