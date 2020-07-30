@@ -629,11 +629,22 @@ def optimize():
     app.logger.info('OPTIMIZE REQUEST RECEIVED')
     # get input
     project_id = request.get_json()['project_id']
+    opti_id = request.get_json()['optimisation_id']
     constraints = request.get_json()['constraints']
     population =  request.get_json()['population']
     max_epoch = request.get_json()['max_epoch']
-    price_info_path = 'projects/{}/price_info.pkl'.format(project_id)
-    model_path = 'projects/{}/models/'.format(project_id)
+
+    app.logger.info(f'OPTIMIZE REQUEST RECEIVED PROJ {project_id}')
+
+    price_info_path = HOME + f'/projects/{project_id}/price_info.pkl'
+    model_path = HOME + f'/projects/{project_id}/models/'
+    opti_path = HOME + f'/projects/{project_id}/{opti_id}/'
+
+    if not os.path.isdir(opti_path):
+        Path(opti_path).mkdir(parents=True)
+
+    price_info_path = f'/projects/{project_id}/price_info.pkl'
+    model_path = f'/projects/{project_id}/models/'
     # load price information
     assert os.path.isfile(price_info_path), 'No price info file found.'
     price_std, price_mean, price_names = p.load(open(price_info_path, 'rb'))
@@ -647,11 +658,13 @@ def optimize():
         name = file.strip().split('.')[0].split('_')[1]
         regressors[name] = p.load(open(model_path + file, 'rb'))
     # run optimization
+    app.logger.info(f'RUNNING OPTIMIZATION PROJ {project_id}')
     result = GeneticAlgorithm(price_std, price_mean, price_names, constraints, regressors, population, max_epoch)
                         # costs=None, penalty_hard_constant=1000000, penalty_soft_constant=100000, step=0.05, 
                         # random_seed=1
     response_outp = {}
     if result[0] == True:
+        app.logger.info(f'OPTIMIZE REQUEST SUCCESS PROJ {project_id}')
         _, pop, stats, hof, report = result
         f = lambda x: 0.05 * np.round(x/0.05)
         best_ind = f(hof[0]).round(2)
@@ -664,7 +677,13 @@ def optimize():
                                        'number of hard constraints (including price ranges) violated',
                                        'number of soft constraints (preferences) violated']
         response_outp['price_cols'] = price_names
+
+        opti_results_path = opti_path + 'optimize_results.json'
+        with open(opti_results_path, 'w') as outfile:
+            json.dump(response_outp, outfile)
+
     else:
+        app.logger.info(f'OPTIMIZE REQUEST FAILED PROJ {project_id}')
         if result[1] == 0:
             response_outp = {
                 'success': False,
@@ -680,6 +699,11 @@ def optimize():
                 'success': False,
                 'type': 2,
                 'info': 'Error: cost is missing for items {} for profit calculation.'.format(result[2])}
+
+        opti_results_path = opti_path + 'optimize_results.json'
+        with open(opti_results_path, 'w') as outfile:
+            json.dump(response_outp, outfile)
+
     return jsonify(response_outp)
 
 @app.route('/get_opti_results/', methods=['POST'])

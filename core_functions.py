@@ -215,15 +215,43 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
         returns:
         (revenue, penalty_): revenue of this individual and penalty from it violating the constraints
         """
-        # Calculating revenue
+
+
+
+        # # Calculating revenue
+        # quantity = np.zeros((num_item))
+        # f = lambda x: 0.05 * np.round(x/0.05)
+        # individual = f(individual)
+        # individual = individual.round(2)
+        # for code in regressors: # TODO: use multiple workers here to speedup the optimization process
+        #     X = pd.DataFrame(individual.reshape(1, -1), columns=price_columns)
+        #     X = X.reindex(sorted(X.columns), axis=1)
+        #     quantity[product_to_idx[code]] = regressors[code].predict(X)
+
+        # MULTITHREADED PREDICT
+        pred_dict = {}
         quantity = np.zeros((num_item))
         f = lambda x: 0.05 * np.round(x/0.05)
         individual = f(individual)
         individual = individual.round(2)
-        for code in regressors: # TODO: use multiple workers here to speedup the optimization process
+
+        def opti_predict(code, individual):
             X = pd.DataFrame(individual.reshape(1, -1), columns=price_columns)
             X = X.reindex(sorted(X.columns), axis=1)
-            quantity[product_to_idx[code]] = regressors[code].predict(X)
+            pred_dict[code] = regressors[code].predict(X)
+
+        opti_processes = []
+        opti_results_ls = []
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            for code in regressors:
+                opti_processes.append(executor.submit(opti_predict, code, individual))
+        for task in as_completed(opti_processes):
+            opti_results_ls.append(task.result())
+
+        for code in regressors:
+            quantity[product_to_idx[code]] = pred_dict[code]
+
+
         # Calculating constraint violation penalty
         if revenue_obj == False: # True for revenue, False for profit
             costs_list = [costs_dic[int(product.split('_')[1])] for product in price_columns]
@@ -265,6 +293,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
             output -= penalty_4[0,0]
         return (output,)
     # 4.2. Initialize individuals and operations
+    log.info('INITIALIZING INDIVIDUALS...')
     creator.create("RevenuePenalty", base.Fitness, weights=(1.,))
     creator.create("Individual", np.ndarray, fitness=creator.RevenuePenalty)
     toolbox = base.Toolbox()
@@ -277,6 +306,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     toolbox.register("mutate", tools.mutFlipBit, indpb=0.05)
     toolbox.register("select", tools.selTournament, tournsize=3)
     # 4.3. Run the algoritm
+    log.info('RUNNING GA...')
     random.seed(64)
     pop = toolbox.population(n=population)
     pop.append(creator.Individual(val_ind1.round(2).flatten()))
@@ -293,6 +323,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
     print('GA started running...')
     algorithms.eaSimple(pop, toolbox, cxpb=0.5, mutpb=0.2, ngen=generation, stats=stats,
                         halloffame=hof)
+    log.info('GA COMPLETED.')
     return True, pop, stats, hof, evalObjective(hof[0], report=True)
 
 
