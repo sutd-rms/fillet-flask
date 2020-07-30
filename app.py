@@ -643,8 +643,6 @@ def optimize():
     if not os.path.isdir(opti_path):
         Path(opti_path).mkdir(parents=True)
 
-    price_info_path = f'/projects/{project_id}/price_info.pkl'
-    model_path = f'/projects/{project_id}/models/'
     # load price information
     assert os.path.isfile(price_info_path), 'No price info file found.'
     price_std, price_mean, price_names = p.load(open(price_info_path, 'rb'))
