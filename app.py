@@ -669,7 +669,11 @@ def optimize():
     # Send result as Dict to avoid confusion
         response_outp['success'] = True
         response_outp['result'] = np.array(best_ind).tolist()
-        response_outp['report'] = [float(i) for i in report]
+        
+        # THE HACKY FIX I MENTIONED PLEASE REMEMEBR TO DELETE THIS COMMENT
+        # response_outp['report'] = [float(i) for i in report]
+        response_outp['report'] = str(report)
+        
         response_outp['report_info'] = ['estimated profit of the optimized price', # is None if cost is not provided completely for the products
                                         'estimated revenue of the optimized price', 
                                        'number of hard constraints (including price ranges) violated',
