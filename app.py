@@ -671,8 +671,17 @@ def optimize():
         response_outp['result'] = np.array(best_ind).tolist()
         
         # THE HACKY FIX I MENTIONED PLEASE REMEMEBR TO DELETE THIS COMMENT
-        # response_outp['report'] = [float(i) for i in report]
-        response_outp['report'] = str(report)
+
+        report_outp = []
+        for i in report:
+            try:
+                i = float(i)
+            except:
+                i = float(0)
+            report_outp.append(i)
+
+        response_outp['report'] = report_outp
+        # response_outp['report'] = str(report)
         
         response_outp['report_info'] = ['estimated profit of the optimized price', # is None if cost is not provided completely for the products
                                         'estimated revenue of the optimized price', 
