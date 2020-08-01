@@ -260,6 +260,7 @@ def GeneticAlgorithm(prices_std_list, prices_mean_list, price_columns, rules, re
             if report:
                 output_rev = individual.dot(quantity)
         else:
+            output = (individual).dot(quantity)
             if report:
                 if len(missing_c) == 0:
                     output_prof = (individual).dot(quantity)
