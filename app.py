@@ -227,9 +227,6 @@ def predict():
     estimates for the given set of prices.
     '''
 
-    with open(HOME + '/fillet_functions_api_endpoints.json') as f:
-        fillet_func_urls = json.load(f)
-
     
 
     # Retrieve request details

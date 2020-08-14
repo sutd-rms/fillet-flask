@@ -1,12 +1,10 @@
 {
   "default": {
   	"train":"https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_1_train",
-  	"cv":"https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_2_cv",
-  	"predict":"https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_4_predictbatch"
+  	"cv":"https://sutdcapstone22-filletofish.azurewebsites.net/api/fillet_func_2_cv"
   },
   "<CUSTOM>": {
   	"train":"https://sutdcapstone22-filletofish.azurewebsites.net/api/<CUSTOM>_train",
-  	"cv":"https://sutdcapstone22-filletofish.azurewebsites.net/api/<CUSTOM>_cv",
-  	"predict":"https://sutdcapstone22-filletofish.azurewebsites.net/api/<CUSTOM>_predictbatch"
+  	"cv":"https://sutdcapstone22-filletofish.azurewebsites.net/api/<CUSTOM>_cv"
   }
 }
